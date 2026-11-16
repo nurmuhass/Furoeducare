@@ -1,0 +1,21 @@
+{
+    "name": "furoeducare/platform",
+    "description": "Education recruitment and services platform for Nigeria.",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": "~8.5.0",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*",
+        "ext-fileinfo": "*",
+        "ext-zip": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Furoeducare\\": "app/"
+        }
+    },
+    "scripts": {
+        "test": "@php tests/foundation.php"
+    }
+}

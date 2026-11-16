@@ -1,0 +1,2 @@
+# Protect the project when a parent Apache site serves the containing directory.
+Require all denied
