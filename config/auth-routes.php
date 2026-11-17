@@ -15,7 +15,7 @@ return static function (Router $router, AuthController $auth): void {
 
     $router->add('GET', '/dashboard', static fn () => $auth->dashboard(null));
     foreach (Role::cases() as $role) {
-        if ($role === Role::Teacher) {
+        if ($role->hasProfileRegistration()) {
             continue;
         }
         $router->add('GET', $role->dashboard(), static fn () => $auth->dashboard($role));

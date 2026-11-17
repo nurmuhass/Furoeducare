@@ -5,7 +5,7 @@ use Furoeducare\Modules\Teacher\Section;
 
 $list = static function (string $name, string $label) use ($field, $values, $errors): void {
     $field($name, $label, implode("\n", $values[$name] ?? []), 'textarea', ['rows' => 3, 'maxlength' => 2500],
-        $errors[$name] ?? '', 'Separate entries with a comma or a new line.');
+        $errors[$name] ?? '', 'Enter one item per line.');
 };
 
 switch ($section) {
@@ -65,10 +65,6 @@ switch ($section) {
         }
         break;
     case Section::Availability:
-        $field('status', 'Availability status', $values['status'] ?? '', 'select', TeacherInput::AVAILABILITY, $errors['status'] ?? '');
-        $field('date', 'Available from date', $values['date'] ?? '', 'date', error: $errors['date'] ?? '',
-            hint: 'Enter a date if you selected “Available from a date”.');
-        break;
     case Section::Documents:
         break;
 }

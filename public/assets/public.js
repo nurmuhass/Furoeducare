@@ -1,5 +1,8 @@
 (() => {
     const header = document.querySelector('[data-site-header]');
+    if (!header) {
+        return;
+    }
     const toggle = header.querySelector('[data-menu-toggle]');
     const setMenu = (open) => {
         header.toggleAttribute('data-menu-open', open);
@@ -84,26 +87,29 @@
     });
 })();
 
-const teacherEntries = document.querySelector('[data-teacher-entries]');
-const teacherEntryTemplate = document.querySelector('[data-teacher-entry-template]');
-const addTeacherEntry = document.querySelector('[data-add-teacher-entry]');
+document.querySelectorAll('[data-teacher-entry-group]').forEach((group) => {
+    const rows = group.querySelector('[data-teacher-entries]');
+    const template = group.querySelector('[data-teacher-entry-template]');
+    const add = group.querySelector('[data-add-teacher-entry]');
+    if (!rows || !template || !add) {
+        return;
+    }
 
-if (teacherEntries && teacherEntryTemplate && addTeacherEntry) {
-    const limit = Number(addTeacherEntry.dataset.entryLimit);
-    addTeacherEntry.hidden = false;
-    addTeacherEntry.addEventListener('click', () => {
-        const index = teacherEntries.children.length;
+    const limit = Number(add.dataset.entryLimit);
+    add.hidden = false;
+    add.addEventListener('click', () => {
+        const index = rows.children.length;
         if (index >= limit) {
             return;
         }
 
         const row = document.createElement('template');
-        row.innerHTML = teacherEntryTemplate.innerHTML
+        row.innerHTML = template.innerHTML
             .replaceAll('ROWINDEX', String(index))
             .replaceAll('ROWNUMBER', String(index + 1));
-        const firstInput = row.content.querySelector('input');
-        teacherEntries.append(row.content);
-        addTeacherEntry.hidden = teacherEntries.children.length >= limit;
-        firstInput.focus();
+        const input = row.content.querySelector('input');
+        rows.append(row.content);
+        input.focus();
+        add.hidden = rows.children.length >= limit;
     });
-}
+});

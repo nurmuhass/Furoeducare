@@ -5,6 +5,7 @@ use Furoeducare\Modules\Auth\Role;
 $path = $data['path'];
 $values = $data['values'];
 $errors = $data['errors'];
+$reference = $values['ref'] ?? null;
 $email = ['email', 'Email address', 'email', 'email', 254, true];
 $password = ['password', 'Password', 'password', 'new-password', 72, true];
 $confirmation = ['password_confirmation', 'Confirm password', 'password', 'new-password', 72, true];
@@ -13,13 +14,11 @@ $confirmation = ['password_confirmation', 'Confirm password', 'password', 'new-p
     '/login' => ['Sign in to your Furoeducare dashboard.', 'Log in', [
         $email, ['password', 'Password', 'password', 'current-password', 72, true],
     ]],
-    '/register' => ['Schools, institutions, parents and guardians can start with their email address.', 'Send registration link', [$email]],
+    '/register' => ['Choose the account type that fits you to start registration.', 'Send registration link', [$email]],
     '/resend-verification' => ['Enter your account email to request a new verification link.', 'Send verification email', [$email]],
     '/forgot-password' => ['Enter your account email to request a password reset link.', 'Send reset link', [$email]],
-    '/verify-email' => ['Verify your email by choosing a password and, for a new account, your account category.', 'Verify my email', [
+    '/verify-email' => ['Choose your account category to continue verifying your email.', 'Continue to verification', [
         ['role', 'Account category', 'role', '', 0, true],
-        ['school_name', 'School name (for school accounts)', 'text', 'organization', 160, false],
-        $password, $confirmation,
     ]],
     '/reset-password' => ['Choose a new password for your account.', 'Reset password', [$password, $confirmation]],
 };
@@ -38,11 +37,23 @@ $showForm = !$requiresToken || $data['token'] !== '';
                 <p class="form-summary" role="alert"><?= $escape($data['message'] ?: 'Review the highlighted fields and try again.') ?></p>
             <?php endif; ?>
 
+            <?php if ($path === '/register'): ?>
+                <nav class="button-row mt-3" aria-label="Registration options">
+                    <a class="btn button button-outline" href="/register/teacher">Teacher or NYSC member</a>
+                    <a class="btn button button-outline" href="/register/school">School or institution</a>
+                    <a class="btn button button-outline" href="/register/parent">Parent or guardian</a>
+                </nav>
+                <p class="form-next">You can also start with an email link.</p>
+            <?php endif; ?>
+
             <?php if ($showForm): ?>
                 <form class="auth-form" method="post" action="<?= $escape($path) ?>">
                     <input type="hidden" name="_csrf" value="<?= $escape($data['csrf']) ?>">
-                    <?php if (($values['flow'] ?? '') === 'teacher'): ?>
-                        <input type="hidden" name="flow" value="teacher">
+                    <?php if (($values['flow'] ?? '') !== ''): ?>
+                        <input type="hidden" name="flow" value="<?= $escape($values['flow']) ?>">
+                    <?php endif; ?>
+                    <?php if ($reference !== null): ?>
+                        <input type="hidden" name="ref" value="<?= $escape($reference) ?>">
                     <?php endif; ?>
                     <?php if ($requiresToken): ?>
                         <input type="hidden" name="token" value="<?= $escape($data['token']) ?>">
@@ -91,12 +102,11 @@ $showForm = !$requiresToken || $data['token'] !== '';
                 <p class="form-next"><a href="/forgot-password">Forgot your password?</a> · <a href="/resend-verification">Resend verification email</a></p>
                 <p class="form-next">New to Furoeducare? <a href="/register">Create an account</a></p>
             <?php elseif ($path === '/register'): ?>
-                <p class="form-next"><a href="/register/teacher">Register as a teacher or NYSC member</a></p>
                 <p class="form-next">Already have an account? <a href="/login">Log in</a></p>
                 <p class="form-next"><a href="/privacy-policy">Privacy policy draft</a> and <a href="/terms">Terms draft</a></p>
             <?php else: ?>
                 <?php if ($requiresToken): ?>
-                    <p class="form-next"><a href="<?= $path === '/verify-email' ? '/resend-verification' : '/forgot-password' ?>">Request a new link</a></p>
+                    <p class="form-next"><a href="<?= $escape($path === '/verify-email' ? '/resend-verification' . ($reference !== null ? '?ref=' . $reference : '') : '/forgot-password') ?>">Request a new link</a></p>
                 <?php endif; ?>
                 <p class="form-next"><a href="/login">Return to log in</a></p>
             <?php endif; ?>

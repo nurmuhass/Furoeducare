@@ -16,6 +16,8 @@ $documents = $data['profile']['sections']['documents']['files'];
     <button class="btn button button-primary align-self-start" type="submit">Upload document</button>
 </form>
 
+<?php require __DIR__ . '/cv-status.php'; ?>
+
 <h3 class="h5 mt-4">Saved documents</h3>
 <?php if ($documents === []): ?>
     <p class="mb-0">You haven’t uploaded any documents yet.</p>
@@ -26,6 +28,7 @@ $documents = $data['profile']['sections']['documents']['files'];
                 <div class="text-break">
                     <a href="/dashboard/teacher/documents/download?id=<?= (int) $document['id'] ?>"><?= $escape($document['display_name']) ?></a>
                     <small class="d-block"><?= $escape(TeacherDocuments::KINDS[$document['kind']]) ?> · <?= (int) ceil($document['bytes'] / 1024) ?> KB</small>
+                    <small class="d-block"><?= $escape(ucfirst($document['review_status'] ?? 'awaiting document review')) ?></small>
                 </div>
                 <form method="post" action="/dashboard/teacher/documents/remove">
                     <input type="hidden" name="_csrf" value="<?= $escape($data['csrf']) ?>">

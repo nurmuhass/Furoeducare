@@ -84,7 +84,7 @@ Persist approval states with the actor, timestamp and relevant resource. Use ser
 
 1. Validate the upload against the configured type and size policy. Use server-side file checks, a generated storage identifier and private storage. Record the uploaded version and enqueue extraction from that version.
 2. Process the document with a bounded PHP CLI job. Save structured suggestions as a draft. A failed or repeated job can update its own processing state and leaves the teacher's saved profile intact. The teacher reviews, edits and explicitly saves professional fields.
-3. For disclosure to a requester, management reviews the access request and records its decision. A proposed access grant binds the requesting account to a specific CV version. The download policy checks the current grant and relevant privacy conditions at the time of delivery. Teachers receive no request to approve access.
+3. For disclosure to a requester, management reviews the access request and records its decision. Each original CV grant binds the requesting account to a specific CV version. The download policy checks the current grant and privacy conditions at delivery. Teachers receive no request to approve access.
 4. Stream authorised files through a controlled download response. Use attachment delivery, private cache controls and opaque storage identifiers. Record access events with minimal metadata. Identity files have their own staff access policy.
 
 Process file storage and database writes with explicit cleanup or recovery for failures between them. Treat uploaded documents and extracted text as untrusted input. Keep raw document contents out of logs and notification messages.
@@ -119,6 +119,14 @@ On Linux, serve `public/` over HTTPS and redirect HTTP to HTTPS. Deploy applicat
 
 The initial design leaves the precise school identity rules, public field allowlist, professional verification criteria and CV access rules to management and privacy review. Parser and mail transport choices belong to their feature phases, once file inputs and delivery requirements are defined.
 
+## Candidate requests and controlled disclosure
+
+The Disclosure module connects candidate cases to the owner's vacancy or tutoring request. Tutoring submissions create a case in the same transaction. Staff claim cases and build shortlists from approved public listings or applicants on the linked vacancy. The published shortlist contains only references and public titles. Restricted scope requests and the resulting grants are separate records.
+
+The policy checks an approved notice version and the recipient's acknowledgement. Staff must document the case-specific consent evidence and review the exact CV version or professional profile revision. The approval transaction locks the involved accounts and checks recipient eligibility, case ownership and the teacher's current privacy controls before writing the decision and grant. Download requests use authenticated PHP controllers and a CSRF-protected POST. Delivery rechecks scope, expiry, version and revocation, reads the private file and records the download before sending bytes. Profile disclosure uses a separate endpoint and an allowlisted snapshot.
+
+The [disclosure policy](DISCLOSURE_POLICY.md) documents activation, independent evidence review, privacy controls and the manual handling of data-subject requests.
+
 The initial foundation's setup and current capabilities are documented in the [README](../README.md). See [decisions](DECISIONS.md), [implementation progress](IMPLEMENTATION_PROGRESS.md) and the [test plan](TEST_PLAN.md) for this phase.
 
 The [database foundation](DATABASE.md) implements account, role, token, audit and settings storage. The migration ledger and CLI are separate from HTTP bootstrap. PHP sessions use file-backed storage for the initial deployment.
@@ -129,4 +137,54 @@ The [authentication module](AUTHENTICATION.md) uses the shared public layout, PD
 
 The Teacher module uses the shared session guard and verification tokens. It creates a private, owner-scoped profile after email activation. Section updates preserve other saved sections. Qualifications and experience use related rows, replaced transactionally within each section. Completion derives from saved values and the presence of a CV. The public Site controller does not read onboarding tables.
 
-The teacher document service validates PDF and DOCX for CVs and also accepts JPEG and PNG for supporting professional files. Storage is private and configurable through `TEACHER_DOCUMENT_DIR`. The database stores opaque keys with the file metadata. Owner-only downloads are attachments. A new CV replaces the active record in one transaction. Removal immediately revokes access to the old record. If deleting the private file fails, the record stays marked for deletion and the next document upload or removal for the account retries it. Document extraction and management-controlled publication and CV access are separate phases. [OWASP file upload guidance](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html)
+The teacher document service validates PDF and DOCX for CVs and also accepts JPEG and PNG for supporting professional files. Storage is private and configurable through `TEACHER_DOCUMENT_DIR`. The database stores opaque keys with the file metadata. Downloads are attachments served through the owner route or the administrator review route. A new CV replaces the active record in one transaction. Removal immediately revokes access to the old record. If deleting the private file fails, the record stays marked for deletion and the next document upload or removal for the account retries it. CV uploads queue a document-scoped extraction job in the upload transaction. The PHP CLI worker reads the original from private storage, validates the structured JSON draft and makes it available to its owner for seven days. Confirming the edited draft adds profile records transactionally, preserves saved fields and clears the draft. Scheduled cleanup expires old drafts and interrupted jobs. Directory publication and managed CV sharing with third parties belong to later phases. [OWASP file upload guidance](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html)
+
+## Teacher dashboard
+
+An authenticated teacher opens Overview at `/dashboard/teacher`. Dashboard tabs share a module layout with responsive navigation, the account menu, and the site theme. Existing profile-section URLs remain valid. Profile completion, professional verification and document states come from the current account’s profile. The controller derives the account ID from the session and validates all editable fields server-side. The Notifications tab shows verification events. Recruitment, placement, library and messaging show informational states until their backend modules are available.
+
+Availability saves selected teaching or tutoring options inside the existing profile section. Temporarily unavailable is exclusive. A start date can coexist with active preferences. Existing schedule values are still readable and accepted on the earlier profile form endpoint.
+
+## School onboarding and review
+
+School signup uses the shared account, mail and session services. Email verification creates the School role and its onboarding profile in the same transaction. A database unique key protects normalized institution identity. School dashboard reads and writes derive the owner from the session. An approval policy guards recruitment routes before any workflow can execute.
+
+Administrators record decisions against the current profile revision. Review history provides school-owned notifications and staff audit details. A suspension updates the shared authentication flag and session version in the same transaction as the decision. School profile, draft and review writes lock the user, then the school profile.
+
+## Parent accounts and tutoring intake
+
+Parent signup uses shared profile registration and creates a private adult profile during email activation. The parent dashboard and its mutations require a verified Parent role. Parent profile and request queries use the signed-in owner. Intake creates private drafts, and a separate submit action checks the reviewed draft version before recording submission. Public teacher and library browsing uses the existing public routes.
+
+## Private tutoring requests
+
+The Parent module owns tutoring requests, staff matching, shortlists, status history and in-app updates. General requests and selections carried through directory sign-in land in the same parent editor. Submitting a tutoring request creates a central candidate case. Staff list and detail queries exclude drafts. Parent request and recommendation queries scope records to the signed-in owner.
+
+Staff search the public directory using the required live tutoring mode. Matching changes and status decisions lock the request and check its current version. Tutors shown to parents come from public, currently available listings attached to their shortlist. Confirmation checks the chosen shortlist record, tutor availability and current professional verification inside the write transaction. The same transaction records history, audit activity and a notification for the parent. Notifications link the parent back to My Requests for private details.
+
+The staff finder keeps the default request subject on the server and carries only the cursor in default pagination links. Submitted request detail includes the adult account's existing contact data for authorised staff coordination.
+
+## Administrator verification
+
+The staff hub at `/dashboard/admin/verification` links to four queues. Its routes and the existing school review routes require an active Administrator role, and review forms require CSRF tokens. Staff document downloads reuse the private attachment service and write an audit event. Review history records the reviewer, checked items, notes and time. Teachers and schools can read their own decision notes through their dashboards.
+
+Decision writes lock the user and profile in that order, compare the reviewed revision and atomically store the change, history, audit and notification event. Teacher edits and pending document decisions update the reviewed revision. The teacher and school suspension flows can each hold a claim on the shared sign-in suspension. Clearing one claim preserves any other active claim or independent account suspension.
+
+`TeacherEligibility::canApply()` evaluates current role, active email-verified account and profile completion. The application service calls `TeacherEligibility::requireForPlacement()` inside the transaction that marks an application Successful. It locks the current account and profile, requires an accepted current CV, and checks the professional decision on that revision.
+
+## Teaching vacancies
+
+The Vacancy module serves the public job board, school workspace and staff moderation screens. Every mutation requires a CSRF token. School records are scoped to the signed-in owner. Review actions check the current role and vacancy revision inside a transaction. Staff record a reason for rejection. Schools can revise rejected, approved or published content and resubmit it. Material edits return the vacancy to draft and pause public access until staff publish the new revision.
+
+The public query selects posting content, the application deadline and the institution name captured at publication. It checks the school's current approval and active account. Applications use the same availability rules under a vacancy lock. The application stores the published revision and a copy of the posting, including the advertised school name. Status updates use the locked application row and write history and audit records in the same transaction. Teachers and staff use separate entry points to read applications and history.
+
+An application also stores an opaque candidate reference, an optional statement and an allowlist of professional fields from the locked teacher profile. It excludes account contact fields, references and document data or storage identifiers. The staff application page can link to the existing restricted verification screens. Neither the public vacancy nor the school workspace reads candidate records. Saved jobs use the same public vacancy eligibility query to decide when to show a public link.
+
+Recruitment writes that span multiple accounts lock their user rows in ascending order before checking profiles. Directory requests lock their account and target user rows in the same order.
+
+## Public teacher directory
+
+The Directory module separates publication, public reads, and private interactions. Publication writes staff-reviewed fields and subject and level tags to a public listing record. The publication and withdrawal transactions update the teacher’s publication stamp, version the reviewed listing and record audit events. The editor verifies the authorisation for names and photographs independently. Photo uploads use PHP GD to decode and re-encode a bounded JPEG and discard upload metadata. GD is required for adding or replacing photographs.
+
+Public SQL selects a fixed field list. It joins the private profile and account to check publication, sign-in status and current availability. It intersects the approved availability categories with the teacher’s current choices and evaluates start dates in Africa/Lagos. Profile, search, bookmark browsing and photo delivery apply the same visibility predicate. Filtered pages use the public reference as a cursor and load up to 12 results.
+
+Authentication takes a typed public reference and constructs a fixed internal request URL. The same-browser continuation expires after 30 minutes. An email verification link can carry the public reference into a different browser. Bookmark and request writes recheck current eligibility and lock the requester and target account before writing. The request intake queue shows submitted records to active administrators.

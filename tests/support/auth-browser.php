@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require __DIR__ . '/parent-fixtures.php';
+
 final class AuthBrowser
 {
     public string $cookie = '';
@@ -50,13 +52,13 @@ function tokenFile(string $directory, string $email, string $route, array $ignor
     throw new RuntimeException("No test message for $route.");
 }
 
-function verifiedAccount(AuthBrowser $browser, string $mail, string $role, string $email, string $password, string $school = ''): void
+function verifiedParent(AuthBrowser $browser, string $mail, string $email, string $password): void
 {
     redirectIs($browser->submit('/register', ['email' => $email]), '/login');
     [$token] = tokenFile($mail, $email, '/verify-email');
-    redirectIs($browser->submit('/verify-email', [
-        'token' => $token, 'role' => $role, 'school_name' => $school,
-        'password' => $password, 'password_confirmation' => $password,
-    ], '/verify-email?token=' . $token), '/login');
+    $legacy = '/verify-email?token=' . $token;
+    $confirmation = '/verify-parent?token=' . $token;
+    redirectIs($browser->submit('/verify-email', ['token' => $token, 'role' => 'parent'], $legacy), $confirmation);
+    redirectIs($browser->submit('/verify-parent', ['token' => $token] + parentFields($email, $password), $confirmation), '/dashboard/parent');
+    redirectIs($browser->submit('/logout', [], '/dashboard/parent'), '/login');
 }
-

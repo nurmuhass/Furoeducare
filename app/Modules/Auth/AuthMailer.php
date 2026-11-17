@@ -28,10 +28,19 @@ final class AuthMailer
         return $origin['scheme'] === 'https' && filter_var($this->config->mailFrom, FILTER_VALIDATE_EMAIL) !== false;
     }
 
-    public function deliver(EmailToken $purpose, string $email, #[\SensitiveParameter] string $token, bool $teacher = false): void
-    {
-        $path = $teacher && $purpose === EmailToken::Verification ? '/verify-teacher' : $purpose->path();
+    public function deliver(
+        EmailToken $purpose,
+        string $email,
+        #[\SensitiveParameter] string $token,
+        ?Role $flow = null,
+        ?string $teacherRequestReference = null,
+    ): void {
+        $path = $purpose === EmailToken::Verification && $flow !== null ? $flow->verificationPath() : $purpose->path();
         $url = rtrim($this->config->baseUrl, '/') . $path . '?token=' . $token;
+        $reference = AuthInput::teacherRequestReference($teacherRequestReference);
+        if ($purpose === EmailToken::Verification && $flow !== Role::Teacher && $reference !== null) {
+            $url .= '&ref=' . $reference;
+        }
         $subject = $purpose === EmailToken::Verification ? 'Verify your Furoeducare email' : 'Reset your Furoeducare password';
         $message = $subject . "\r\n\r\n" . $url . "\r\n\r\n"
             . "If you did not request this email, you can ignore it.\r\n";

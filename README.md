@@ -4,7 +4,7 @@ Core PHP application for an education recruitment and services platform in Niger
 
 ## Windows development
 
-1. Install the latest stable patch of PHP 8.5 for Windows and a current Composer 2 release. Use the x64 non-thread-safe PHP build for the CLI. In the local PHP installation, create `php.ini` from `php.ini-development`, set `extension_dir = "ext"`, and enable `openssl`, `pdo_mysql`, `fileinfo` and `zip`. Use the [official Windows PHP downloads](https://www.php.net/downloads.php?os=windows) and [Composer setup](https://getcomposer.org/download/).
+1. Install the latest stable patch of PHP 8.5 for Windows and a current Composer 2 release. Use the x64 non-thread-safe PHP build for the CLI. In the local PHP installation, create `php.ini` from `php.ini-development`, set `extension_dir = "ext"`, and enable `openssl`, `pdo_mysql`, `fileinfo`, `zip`, `xmlreader` and `gd`. Use the [official Windows PHP downloads](https://www.php.net/downloads.php?os=windows) and [Composer setup](https://getcomposer.org/download/).
 2. If you use XAMPP, check its PHP separately with `C:\xampp\php\php.exe -v`. Put PHP 8.5 first in the current PowerShell session's PATH. The following commands assume PHP is in `C:\tools\php85`.
 
    ```powershell
@@ -143,3 +143,11 @@ Run `composer validate --strict` and `composer test` from the project root. The 
 Use the [public website test steps](docs/TEST_PLAN.md#public-website) to check responsive navigation, the three appearance modes and the contact preview. See the [authentication guide](docs/AUTHENTICATION.md) for live registration, password reset and production mail setup. Use the [teacher onboarding test steps](docs/TEST_PLAN.md#teacher-onboarding) to verify Teacher and NYSC Member registration, profile saving and private uploads.
 #   F u r o e d u c a r e  
  
+
+Teachers can review extracted CV details after the [CV extraction worker](docs/CV_EXTRACTION.md) runs.
+
+The Teacher / NYSC Member dashboard opens at `/dashboard/teacher`. See the [dashboard verification steps](docs/TEST_PLAN.md#teacher-dashboard).
+
+School registration is at `/register/school`. See [school onboarding and review](docs/SCHOOL_ONBOARDING.md) for the administrator workflow and permissions.
+
+Parent and guardian registration is at `/register/parent`. See [parent account setup and request behaviour](docs/PARENT_ACCOUNTS.md).

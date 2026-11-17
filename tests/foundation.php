@@ -39,14 +39,14 @@ try {
         $publicPages = [
             '/about' => 'About us',
             '/services' => 'Our services',
-            '/find-teachers' => 'Find teachers',
-            '/teaching-jobs' => 'Teaching jobs',
             '/digital-library' => 'Digital library',
             '/training-workshops' => 'Training and workshops',
             '/contact' => 'Contact us',
             '/login' => 'Log in',
             '/register' => 'Create an account',
             '/register/teacher' => 'Teacher and NYSC registration',
+            '/register/school' => 'School and institution registration',
+            '/register/parent' => 'Parent and guardian registration',
             '/privacy-policy' => 'Privacy policy',
             '/terms' => 'Terms of use',
         ];
@@ -59,7 +59,7 @@ try {
                 expect(str_contains($page, 'Draft awaiting legal review'), "$path must disclose its draft status.");
             }
         }
-        foreach (['/find-teachers', '/teaching-jobs', '/digital-library', '/training-workshops'] as $path) {
+        foreach (['/digital-library', '/training-workshops'] as $path) {
             [, , $page] = request($base, $path);
             expect(str_contains($page, 'data-empty-state'), "$path must offer an intentional empty state.");
         }
@@ -68,7 +68,7 @@ try {
             expect($postStatus === 405, "$path must not accept backend submissions.");
         }
 
-        foreach (['/login', '/register', '/register/teacher', '/verify-teacher', '/logout'] as $path) {
+        foreach (['/login', '/register', '/register/teacher', '/verify-teacher', '/register/school', '/verify-school', '/register/parent', '/verify-parent', '/logout'] as $path) {
             [$csrfStatus] = request($base, $path, 'POST', 'email=example%40example.test');
             expect($csrfStatus === 403, "$path must reject a POST without a valid CSRF token.");
         }

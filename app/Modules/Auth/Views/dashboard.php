@@ -3,7 +3,6 @@
 use Furoeducare\Modules\Auth\Role;
 
 $role = $data['role'];
-$school = $data['school'];
 ?>
 <section class="page-band">
     <div class="site-shell page-intro">
@@ -15,19 +14,16 @@ $school = $data['school'];
     <div class="form-panel auth-dashboard">
         <h2>Account overview</h2>
         <p class="form-description">Signed in as <?= $escape($data['email']) ?>.</p>
-        <?php if ($role === Role::School): ?>
-            <?php if ($school !== null): ?>
-                <p class="form-description"><?= $escape($school['school_name']) ?></p>
-            <?php endif; ?>
-            <?php if (($school['approved_at'] ?? null) === null): ?>
-                <span class="status-badge">Pending management approval</span>
-                <p>Your school dashboard is restricted while management reviews the account. School vacancy posting requires approval.</p>
-            <?php else: ?>
-                <span class="status-badge">School approved</span>
-                <p>Management has approved this school account.</p>
-            <?php endif; ?>
-        <?php elseif ($role === Role::Teacher || $role === Role::Parent): ?>
-            <p><?= $role === Role::Teacher ? 'Your teacher account is ready for onboarding.' : 'Your parent account is ready for onboarding.' ?></p>
+        <?php if ($role === Role::Admin): ?>
+            <p class="form-next"><a href="/dashboard/admin/verification">Verification queues</a></p>
+            <p class="form-next"><a href="/dashboard/admin/schools">Review school accounts</a></p>
+            <p class="form-next"><a href="/dashboard/admin/verification/teachers?status=all">Manage public teacher listings</a></p>
+            <p class="form-next"><a href="/dashboard/admin/candidate-requests">Candidate requests and disclosure review</a></p>
+            <p class="form-next"><a href="/dashboard/admin/privacy-requests">Data rights requests</a></p>
+            <p class="form-next"><a href="/privacy/controls">My privacy controls</a></p>
+            <p class="form-next"><a href="/dashboard/admin/tutoring-requests">Tutoring requests</a></p>
+            <p class="form-next"><a href="/dashboard/admin/vacancies">Vacancy moderation</a></p>
+            <p class="form-next"><a href="/dashboard/admin/vacancies/applications">Teaching applications</a></p>
         <?php endif; ?>
         <?php if (count($data['roleLinks']) > 1): ?>
             <nav aria-label="Your dashboards" class="button-row auth-related">

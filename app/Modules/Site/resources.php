@@ -3,38 +3,6 @@
 declare(strict_types=1);
 
 return [
-    '/find-teachers' => [
-        'title' => 'Find teachers',
-        'category' => 'For schools and families',
-        'icon' => 'people',
-        'tone' => 'green',
-        'lead' => 'Explore teaching and tutoring support for your school or family. Public profiles will help you understand a teacher’s subjects, experience and professional background.',
-        'emptyTitle' => 'Teacher profiles will appear here',
-        'emptyText' => 'There are no public profiles to browse yet. Learn how Furoeducare handles teacher requests and professional information.',
-        'next' => ['/services#tutoring', 'Explore recruitment and tutoring'],
-        'section' => 'What you’ll be able to do',
-        'details' => [
-            ['Browse public profiles', 'View approved profiles without creating an account. Each listing shares a limited set of professional fields.'],
-            ['Request teaching support', 'Schools and parents can use an account to ask about a teacher or request more information. Parents can also make a private tutoring request.'],
-            ['Work with Furoeducare', 'Furoeducare manages enquiries, shortlisting and access to original CVs. Public listings keep contact details and private documents out of view.'],
-        ],
-    ],
-    '/teaching-jobs' => [
-        'title' => 'Teaching jobs',
-        'category' => 'For teachers and NYSC members',
-        'icon' => 'case',
-        'tone' => 'sand',
-        'lead' => 'Explore teaching opportunities from approved schools and institutions in Nigeria. Furoeducare coordinates the recruitment process from application to placement.',
-        'emptyTitle' => 'There are no vacancies to browse yet',
-        'emptyText' => 'Open teaching vacancies will be listed here. You can explore the teacher account entry in the meantime.',
-        'next' => ['/register', 'Explore account options'],
-        'section' => 'How teaching recruitment works',
-        'details' => [
-            ['Build a professional profile', 'Teachers and NYSC members can prepare a profile that describes their subjects, qualifications and experience.'],
-            ['Apply for a suitable role', 'Applications can be submitted before professional verification. Furoeducare manages shortlisting and follow-up.'],
-            ['Complete verification', 'Final placement requires professional verification. Approved schools can post vacancies through their accounts.'],
-        ],
-    ],
     '/digital-library' => [
         'title' => 'Digital library',
         'category' => 'Learning resources',

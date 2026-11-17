@@ -69,28 +69,56 @@ final class AuthSession
         ];
     }
 
-    public function rememberTeacherRegistration(#[\SensitiveParameter] string $token, #[\SensitiveParameter] array $draft): void
+    public function rememberTeacherRequest(string $reference): void
     {
+        if (AuthInput::teacherRequestReference($reference) === null) {
+            return;
+        }
+
         $this->start();
-        $_SESSION['teacher_registration'] = ['token_hash' => hash('sha256', $token), 'draft' => $draft];
+        $_SESSION['teacher_request'] = ['reference' => $reference, 'expires' => time() + self::IDLE_LIMIT];
     }
 
-    public function pendingTeacherRegistration(#[\SensitiveParameter] string $token): ?array
+    public function teacherRequestReference(): ?string
     {
         $this->start();
-        $pending = $_SESSION['teacher_registration'] ?? null;
+        $request = $_SESSION['teacher_request'] ?? [];
+        if (($request['expires'] ?? 0) <= time()) {
+            unset($_SESSION['teacher_request']);
+            return null;
+        }
+
+        return AuthInput::teacherRequestReference($request['reference'] ?? null);
+    }
+
+    public function teacherRequestPath(?string $reference = null): ?string
+    {
+        $reference = AuthInput::teacherRequestReference($reference) ?? $this->teacherRequestReference();
+        return $reference === null ? null : '/find-teachers/request?ref=' . $reference;
+    }
+
+    public function rememberRegistration(Role $role, #[\SensitiveParameter] string $token, #[\SensitiveParameter] array $draft): void
+    {
+        $this->start();
+        $_SESSION[$role->value . '_registration'] = ['token_hash' => hash('sha256', $token), 'draft' => $draft];
+    }
+
+    public function pendingRegistration(Role $role, #[\SensitiveParameter] string $token): ?array
+    {
+        $this->start();
+        $pending = $_SESSION[$role->value . '_registration'] ?? null;
         return $pending !== null && hash_equals($pending['token_hash'], hash('sha256', $token))
             ? $pending['draft'] : null;
     }
 
-    public function renewTeacherRegistration(string $email, #[\SensitiveParameter] string $token): bool
+    public function renewRegistration(Role $role, string $email, #[\SensitiveParameter] string $token): bool
     {
         $this->start();
-        $draft = $_SESSION['teacher_registration']['draft'] ?? null;
+        $draft = $_SESSION[$role->value . '_registration']['draft'] ?? null;
         if ($draft === null || ($draft['values']['email'] ?? '') !== $email) {
             return false;
         }
-        $this->rememberTeacherRegistration($token, $draft);
+        $this->rememberRegistration($role, $token, $draft);
         return true;
     }
 

@@ -6,17 +6,18 @@ namespace Furoeducare\Modules\Teacher;
 
 use finfo;
 use Furoeducare\Core\Response;
+use Furoeducare\Modules\Teacher\Cv\CvContent;
+use Furoeducare\Modules\Teacher\Cv\ExtractionFailure;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
-use ZipArchive;
+
 
 final class TeacherDocuments
 {
     public const KINDS = ['cv' => 'CV', 'qualification' => 'Qualification', 'certification' => 'Certification', 'other' => 'Other professional document'];
     public const MAX_BYTES = 5 * 1024 * 1024;
     public const SUPPORTING_LIMIT = 20;
-    private const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
     public function __construct(
         private readonly TeacherRepository $repository,
@@ -48,9 +49,9 @@ final class TeacherDocuments
         $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
         $detected = (new finfo(FILEINFO_MIME_TYPE))->file($temporary);
         $mime = match ($extension) {
-            'pdf' => $detected === 'application/pdf' ? $detected : null,
-            'docx' => in_array($detected, [self::DOCX, 'application/zip'], true)
-                && $this->isWordDocument($temporary) ? self::DOCX : null,
+            'pdf' => $detected === 'application/pdf' && CvContent::isPdf($temporary, $bytes) ? $detected : null,
+            'docx' => in_array($detected, [CvContent::DOCX, 'application/zip'], true)
+                && $this->isWordDocument($temporary) ? CvContent::DOCX : null,
             'jpg', 'jpeg' => $kind !== 'cv' && $detected === 'image/jpeg' ? $detected : null,
             'png' => $kind !== 'cv' && $detected === 'image/png' ? $detected : null,
             default => null,
@@ -64,7 +65,7 @@ final class TeacherDocuments
         $base = preg_replace('/[^A-Za-z0-9._ -]/', '_', pathinfo($name, PATHINFO_FILENAME));
         $name = (trim(substr($base, 0, 170), '. ') ?: 'document') . '.' . $extension;
         $key = bin2hex(random_bytes(32));
-        $path = $this->path($key);
+        $path = $this->privatePath($key);
         $this->retryRemovals($teacher);
         if (!move_uploaded_file($temporary, $path)) {
             throw new RuntimeException('Unable to store the private teacher document.');
@@ -85,7 +86,7 @@ final class TeacherDocuments
         if ($document === null) {
             return null;
         }
-        $body = @file_get_contents($this->path($document['storage_key']), length: self::MAX_BYTES + 1);
+        $body = @file_get_contents($this->privatePath($document['storage_key']), length: self::MAX_BYTES + 1);
         if ($body === false || strlen($body) !== (int) $document['bytes']) {
             if ($this->repository->document($teacher, $id) === null) {
                 return null;
@@ -120,20 +121,15 @@ final class TeacherDocuments
 
     private function isWordDocument(string $path): bool
     {
-        $zip = new ZipArchive();
-        if ($zip->open($path, ZipArchive::RDONLY) !== true) {
-            return false;
-        }
         try {
-            return $zip->locateName('[Content_Types].xml') !== false
-                && $zip->locateName('word/document.xml') !== false
-                && $zip->locateName('word/vbaProject.bin', ZipArchive::FL_NOCASE) === false;
-        } finally {
-            $zip->close();
+            CvContent::wordText($path, collect: false);
+            return true;
+        } catch (ExtractionFailure) {
+            return false;
         }
     }
 
-    private function path(string $key): string
+    public function privatePath(string $key): string
     {
         if (preg_match('/\A[a-f0-9]{64}\z/', $key) !== 1) {
             throw new RuntimeException('Invalid teacher document storage key.');
@@ -164,7 +160,7 @@ final class TeacherDocuments
 
     private function deleteFile(string $key): bool
     {
-        $path = $this->path($key);
+        $path = $this->privatePath($key);
         if (@unlink($path)) {
             return true;
         }

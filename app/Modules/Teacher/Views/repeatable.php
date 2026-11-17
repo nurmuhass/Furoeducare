@@ -5,12 +5,14 @@ use Furoeducare\Modules\Teacher\Section;
 
 $education = $section === Section::Qualifications;
 $entry = $education ? 'Qualification' : 'Experience';
-$rows = $values['rows'] ?? [];
+$rowKey ??= 'rows';
+$fromCv = $rowKey !== 'rows';
+$rows = $values[$rowKey] ?? [];
 $fields = $education
     ? ['qualification' => ['Qualification', 160], 'institution' => ['Institution', 160], 'field_of_study' => ['Field of study', 160], 'completed_year' => ['Completion year', 4]]
     : ['position_title' => ['Role or position', 160], 'organisation' => ['Organisation', 160], 'started_year' => ['Start year', 4],
         'ended_year' => ['End year', 4], 'description' => ['Description', 1000]];
-$renderRow = static function (int|string $index, string $legend, array $row) use ($field, $fields, $errors, $escape): void {
+$renderRow = static function (int|string $index, string $legend, array $row) use ($field, $fields, $errors, $escape, $rowKey, $fromCv): void {
     ?>
     <fieldset class="border rounded p-3 d-grid gap-3">
         <legend class="float-none w-auto px-2 h6"><?= $escape($legend) ?></legend>
@@ -23,23 +25,27 @@ $renderRow = static function (int|string $index, string $legend, array $row) use
             if ($key === 'description') {
                 $options['rows'] = 3;
             }
-            $field("rows[$index][$key]", $label, $row[$key] ?? '', $key === 'description' ? 'textarea' : 'text',
-                $options, $errors["rows.$index.$key"] ?? '', $key === 'ended_year' ? 'Leave blank for a current role.' : '');
+            if ($fromCv && empty($row[$key])) {
+                $options['placeholder'] = 'Missing';
+            }
+            $field("{$rowKey}[$index][$key]", $label, $row[$key] ?? '', $key === 'description' ? 'textarea' : 'text',
+                $options, $errors["$rowKey.$index.$key"] ?? '', $key === 'ended_year' ? 'Leave blank for a current role.' : '');
             ?>
         <?php endforeach; ?>
         <?php if ($row !== []): ?>
             <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="rows[<?= $index ?>][remove]" value="1" id="remove-row-<?= $index ?>">
-                <label class="form-check-label" for="remove-row-<?= $index ?>">Remove this entry on save</label>
+                <input class="form-check-input" type="checkbox" name="<?= $rowKey ?>[<?= $index ?>][remove]" value="1" id="remove-<?= $rowKey ?>-<?= $index ?>">
+                <label class="form-check-label" for="remove-<?= $rowKey ?>-<?= $index ?>"><?= $fromCv ? 'Skip this suggestion' : 'Remove this entry on save' ?></label>
             </div>
         <?php endif; ?>
     </fieldset>
     <?php
 };
 ?>
-<p class="form-next">Save entries as you go. Leave extra entries blank.</p>
-<?php if (isset($errors['rows'])): ?><p class="field-error"><?= $escape($errors['rows']) ?></p><?php endif; ?>
-<?php if (!$education): ?>
+<div class="d-grid gap-3" data-teacher-entry-group>
+<?php if (!$fromCv): ?><p class="form-next">Save entries as you go. Leave extra entries blank.</p><?php endif; ?>
+<?php if (isset($errors[$rowKey])): ?><p class="field-error"><?= $escape($errors[$rowKey]) ?></p><?php endif; ?>
+<?php if (!$education && !$fromCv): ?>
     <div class="form-check">
         <input class="form-check-input" id="teacher-no-experience" type="checkbox" name="no_experience" value="1"
             <?= !empty($values['no_experience']) ? 'checked' : '' ?>
@@ -61,3 +67,4 @@ $renderRow = static function (int|string $index, string $legend, array $row) use
     <button type="button" class="btn button button-outline align-self-start" data-add-teacher-entry
         data-entry-limit="<?= TeacherInput::ROW_LIMIT ?>" hidden>Add another <?= $escape(strtolower($entry)) ?></button>
 <?php endif; ?>
+</div>

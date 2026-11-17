@@ -7,10 +7,12 @@ use Furoeducare\Core\Database;
 use Furoeducare\Core\Database\MigrationRunner;
 use Furoeducare\Core\Database\SeedRunner;
 use Furoeducare\Modules\Teacher\TeacherInput;
+use Furoeducare\Modules\Teacher\DashboardPage;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 require __DIR__ . '/support/http.php';
 require __DIR__ . '/support/auth-browser.php';
+require __DIR__ . '/support/cv-fixtures.php';
 
 function upload(string $base, AuthBrowser $browser, string $kind, string $name, string $bytes): array
 {
@@ -22,6 +24,25 @@ function upload(string $base, AuthBrowser $browser, string $kind, string $name, 
         . "Content-Type: application/octet-stream\r\n\r\n$bytes\r\n--$boundary--\r\n";
     return request($base, '/dashboard/teacher/documents/upload', 'POST', $body, $browser->cookie,
         'multipart/form-data; boundary=' . $boundary);
+}
+
+function runCvWorker(string $directory): void
+{
+    $arguments = [PHP_BINARY];
+    if (php_ini_loaded_file() !== false) {
+        array_push($arguments, '-c', php_ini_loaded_file());
+    }
+    array_push($arguments, 'bin/cv-worker.php', '--once');
+    $log = $directory . '/worker.log';
+    $process = proc_open($arguments, [
+        0 => ['pipe', 'r'], 1 => ['file', $log, 'w'], 2 => ['file', $log, 'a'],
+    ], $pipes, dirname(__DIR__), array_replace(getenv(), ['TEACHER_DOCUMENT_DIR' => $directory . '/documents']));
+    expect(is_resource($process), 'Cannot launch the extraction worker.');
+    fclose($pipes[0]);
+    $exit = proc_close($process);
+    $output = file_get_contents($log);
+    unlink($log);
+    expect($exit === 0 && str_contains($output, 'CV extraction jobs processed: 1'), 'The worker must process one queued job. ' . $output);
 }
 
 function saveSection(AuthBrowser $browser, string $section, array $fields): array
@@ -97,7 +118,8 @@ try {
         expect($teacher->cookie !== $anonymous, 'Activation must regenerate the session.');
         [$status, $headers, $body] = $teacher->send($dash);
         expect($status === 200 && ($headers['cache-control'] ?? '') === 'no-store'
-            && str_contains($body, '1 of 10 sections complete') && str_contains($body, 'NYSC details (optional)'),
+            && str_contains($body, '1 of 10 sections complete')
+            && str_contains($teacher->send($dash . '?section=personal')[2], 'NYSC details (optional)'),
             'The owner should reach private onboarding with optional NYSC details.');
         $profile = $db->query('SELECT * FROM teacher_profiles')->fetch();
         expect($profile['category'] === 'nysc' && $profile['phone'] === '+2348012345678'
@@ -131,15 +153,87 @@ try {
         expect($guest->send($otherLink)[0] === 422, 'A consumed link does not render a registration form.');
         expect($guest->submit($verify, ['token' => $otherToken, 'confirm_registration' => '1'], '/login')[0] === 422,
             'A completed link cannot activate the original draft.');
-        expect(!str_contains($other->send($dash)[2], 'NYSC details (optional)'), 'Teacher accounts omit NYSC questions.');
+        expect(!str_contains($other->send($dash . '?section=personal')[2], 'NYSC details (optional)'), 'Teacher accounts omit NYSC questions.');
         $parent = new AuthBrowser($base);
-        verifiedAccount($parent, $mail, 'parent', 'parent@example.test', $password);
+        verifiedParent($parent, $mail, 'parent@example.test', $password);
         redirectIs($parent->submit('/login', ['email' => 'parent@example.test', 'password' => $password]), '/dashboard/parent');
         expect($parent->send($dash)[0] === 403 && $parent->submit($dash . '/profile', ['section' => 'biography'], '/dashboard/parent')[0] === 403,
             'Another role cannot read or write the teacher dashboard.');
         echo "PASS cross-browser activation, single-use links, and role restrictions.\n";
 
         $teacherId = (int) $profile['user_id'];
+        $otherId = (int) $db->query("SELECT user_id FROM teacher_profiles WHERE first_name = 'Mailbox'")->fetchColumn();
+        $availabilityPage = $dash . '?tab=availability';
+        $personalPage = $dash . '?tab=profile&section=personal';
+        foreach (DashboardPage::cases() as $tab) {
+            [$tabStatus, , $tabBody] = $teacher->send($tab->url());
+            expect($tabStatus === 200 && str_contains($tabBody, '<h1>' . $tab->label() . '</h1>')
+                && str_contains($tabBody, 'aria-label="Teacher dashboard navigation"'), 'Every dashboard tab must load with its heading.');
+        }
+        expect(str_contains($teacher->send(DashboardPage::Jobs->url())[2], 'href="/teaching-jobs"')
+            && str_contains($teacher->send(DashboardPage::Applications->url())[2], 'No applications on this page.'),
+            'The recruitment tabs link to the job board and show a private empty application list.');
+        expect(str_contains($teacher->send(DashboardPage::SavedJobs->url())[2], 'No saved jobs on this page.'),
+            'The new teacher sees an empty Saved Jobs tab.');
+        foreach ([DashboardPage::Placements, DashboardPage::Library, DashboardPage::Messages] as $tab) {
+            expect(str_contains($teacher->send($tab->url())[2], 'Not available yet'), 'Pending features must have informational pages.');
+        }
+        expect(str_contains($teacher->send(DashboardPage::Notifications->url())[2], 'No verification updates yet.'),
+            'An account without verification events sees the notifications empty state.');
+        foreach (['Total applications', 'Active applications', 'Interview invitations', 'Placement updates', 'Recent notifications'] as $metric) {
+            expect(str_contains($body, $metric), "Overview must include $metric.");
+        }
+        expect(substr_count($body, '<dd>0</dd>') === 3
+            && str_contains($body, 'Incomplete') && str_contains($body, 'CV needed'),
+            'Overview must show actual application counts and profile and CV states.');
+
+        $db->prepare('UPDATE teacher_profiles SET professional_verified_at = CURRENT_TIMESTAMP(6) WHERE user_id = ?')->execute([$teacherId]);
+        expect(!str_contains($teacher->send($dash)[2], 'Furoeducare has verified your professional profile.'),
+            'A legacy timestamp alone cannot mark the professional review verified.');
+        expect(!str_contains($teacher->send($personalPage . '&user_id=' . $otherId)[2], 'other@example.test')
+            && !str_contains($other->send($personalPage . '&user_id=' . $teacherId)[2], 'nysc@example.test'),
+            'Changing a URL identifier cannot read another teacher profile.');
+
+        $forged = [
+            'section' => 'personal', 'user_id' => $teacherId, 'first_name' => 'Mailbox', 'last_name' => 'Only own changes',
+            'phone' => '08055555555', 'professional_verified_at' => '2026-11-01 00:00:00', 'published_at' => '2026-11-01 00:00:00',
+        ];
+        redirectIs($other->submit($dash . '/profile', $forged, $personalPage), $dash . '?section=personal');
+        $protected = $db->query("SELECT user_id, last_name, professional_verified_at, published_at FROM teacher_profiles ORDER BY user_id")->fetchAll();
+        expect($protected[0]['last_name'] === 'Fixture' && $protected[0]['professional_verified_at'] !== null
+            && $protected[1]['last_name'] === 'Only own changes' && $protected[1]['professional_verified_at'] === null
+            && $protected[1]['published_at'] === null, 'Teachers can update only their own editable profile fields.');
+        $authBefore = $db->query('SELECT COUNT(*) FROM teacher_profiles')->fetchColumn();
+        redirectIs($guest->send($dash . '/profile', 'POST', $forged), '/login');
+        expect($parent->submit($dash . '/profile', $forged, '/dashboard/parent')[0] === 403
+            && $db->query('SELECT COUNT(*) FROM teacher_profiles')->fetchColumn() === $authBefore,
+            'Anonymous and non-teacher updates are denied.');
+        expect($teacher->send($dash . '/profile', 'POST', ['section' => 'availability', 'availability_preferences' => '1'])[0] === 403,
+            'Availability updates must require CSRF.');
+
+        $availabilityFields = ['section' => 'availability', 'availability_preferences' => '1'];
+        redirectIs(saveSection($teacher, 'availability', ['status' => 'now']), $dash . '?section=availability');
+        expect(str_contains($teacher->send($availabilityPage)[2], 'Available now is already saved.'),
+            'A legacy availability status should be visible without inventing preferences.');
+        redirectIs($teacher->submit($dash . '/profile', $availabilityFields, $availabilityPage), $dash . '?section=availability');
+        expect(str_contains($teacher->send($availabilityPage)[2], 'Available now is already saved.'),
+            'Submitting an unchanged form should preserve legacy availability.');
+        $modes = ['full_time', 'part_time', 'private_tutoring', 'online_tutoring'];
+        redirectIs($teacher->submit($dash . '/profile', $availabilityFields + ['opportunities' => $modes, 'user_id' => $otherId], $availabilityPage),
+            $dash . '?section=availability');
+        $optionBody = $teacher->send($availabilityPage)[2];
+        expect(substr_count($optionBody, 'checked') === 4 && !str_contains($other->send($availabilityPage)[2], 'checked'),
+            'Compatible availability preferences persist for their owner only.');
+        expect($teacher->submit($dash . '/profile', $availabilityFields + ['opportunities' => ['unavailable', 'full_time']], $availabilityPage)[0] === 422
+            && substr_count($teacher->send($availabilityPage)[2], 'checked') === 4,
+            'A conflicting save must leave the existing preferences unchanged.');
+        redirectIs($other->submit($dash . '/profile', $availabilityFields + ['opportunities' => ['unavailable']], $availabilityPage),
+            $dash . '?section=availability');
+        expect(preg_match('/id="availability-unavailable"[^>]*\bchecked\b/', $other->send($availabilityPage)[2]) === 1
+            && substr_count($teacher->send($availabilityPage)[2], 'checked') === 4,
+            'Temporarily unavailable persists independently of another account.');
+        echo "PASS dashboard sections, accurate overview, ownership, protected-field updates, and availability persistence.\n";
+
         $saving = [
             'personal' => ['first_name' => 'Adùnní', 'last_name' => 'Fixture', 'phone' => '+2348023456789', 'nysc_batch' => 'Batch B', 'nysc_state' => 'Oyo', 'nysc_year' => '2025'],
             'biography' => ['bio' => 'I teach <physics> and use practical demonstrations.'],
@@ -176,18 +270,79 @@ try {
             && (int) $db->query("SELECT COUNT(*) FROM teacher_experiences WHERE teacher_id = $teacherId")->fetchColumn() === 2,
             'Invalid replacement preserves saved entries.');
         redirectIs(saveSection($other, 'experience', ['no_experience' => '1']), $dash . '?section=experience');
-        expect(str_contains($other->send($dash . '?section=experience')[2], '2 of 10 sections complete'), 'No-experience declaration completes the section.');
+        expect(str_contains($other->send($dash . '?section=experience')[2], '3 of 10 sections complete'), 'No-experience declaration completes the section.');
         $page = $teacher->send($dash . '?section=biography')[2];
         expect(str_contains($page, '9 of 10 sections complete') && str_contains($page, '&lt;physics&gt;')
             && !str_contains($other->send($dash . '?section=biography')[2], 'practical demonstrations'),
             'Saved sections survive independent updates, escape output, and stay owner-scoped.');
-        expect(str_contains($teacher->send($dash)[2], 'Batch B'), 'Optional NYSC details persist.');
+        expect(str_contains($teacher->send($dash . '?section=personal')[2], 'Batch B'), 'Optional NYSC details persist.');
         echo "PASS all profile fields, progressive draft saving, multiple entries, completion tracking, and profile isolation.\n";
 
-        $pdf = "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n";
+        $cvPage = $dash . '/cv';
+        $lines = ['Professional Summary', 'CV bio that must not replace the saved one.', 'Work History',
+            'Teacher at Original CV School | 2016 - 2018', 'Tutor at Separate Learning Centre | 2019 - Present',
+            'Education', 'NCE | Fixture College | 2015', 'Skills', 'Assessment', 'Subjects', 'Biology',
+            'Certifications', 'First aid', 'Child safeguarding'];
+        $pdf = sampleCvPdf($lines);
         expect(upload($base, $teacher, 'cv', 'resume.pdf', 'plain text')[0] === 422, 'Reject a file whose content does not match its extension.');
+        expect(upload($base, $teacher, 'cv', 'truncated.pdf', "%PDF-1.4\nmissing ending")[0] === 422,
+            'Reject a PDF whose content fails the envelope check.');
+        expect((int) $db->query('SELECT COUNT(*) FROM teacher_cv_extractions')->fetchColumn() === 0, 'Invalid uploads cannot queue a job.');
+
+        redirectIs(upload($base, $teacher, 'cv', 'scan.pdf', sampleCvPdf([], true)), $docs);
+        runCvWorker($work);
+        expect(str_contains($teacher->send($docs)[2], 'OCR is not yet supported')
+            && str_contains($teacher->send($docs)[2], 'continue with manual profile editing'),
+            'A scanned CV keeps its original and explains the manual fallback.');
+
         redirectIs(upload($base, $teacher, 'cv', 'resume.pdf', $pdf), $docs);
         $first = $db->query('SELECT id, storage_key FROM teacher_documents')->fetch();
+        expect(str_contains($teacher->send($docs)[2], 'Waiting for extraction.'), 'A valid upload queues extraction.');
+        runCvWorker($work);
+        [$status, $headers, $body] = $teacher->send($cvPage);
+        expect($status === 200 && ($headers['cache-control'] ?? '') === 'no-store'
+            && str_contains($body, 'Original CV School') && str_contains($body, 'Separate Learning Centre')
+            && str_contains($body, 'Check accuracy') && str_contains($body, 'placeholder="Missing"'),
+            'The owner sees editable suggestions with explicit review and missing-field hints.');
+        redirectIs($other->send($cvPage), $docs);
+        expect($parent->send($cvPage)[0] === 403, 'Parents cannot open teacher extraction drafts.');
+        redirectIs($guest->send($cvPage), '/login');
+        expect((int) $db->query("SELECT COUNT(*) FROM teacher_experiences WHERE teacher_id = $teacherId")->fetchColumn() === 2,
+            'Extraction must not change existing profile records before confirmation.');
+
+        $review = [
+            'document_id' => $first['id'],
+            'summary' => 'New bio from CV',
+            'qualifications' => [['qualification' => 'NCE', 'institution' => 'Fixture College', 'completed_year' => '2015']],
+            'experience' => [
+                ['position_title' => 'Teacher', 'organisation' => 'Corrected CV School', 'started_year' => '2016', 'ended_year' => '2018'],
+                ['position_title' => 'Tutor', 'organisation' => 'Separate Learning Centre', 'started_year' => '2019'],
+            ],
+            'skills' => "Assessment\nLesson planning",
+            'subjects' => 'Biology',
+            'certifications' => "First aid\nChild safeguarding",
+        ];
+        expect($teacher->send($cvPage, 'POST', $review + ['confirmed' => '1'])[0] === 403, 'CV confirmation requires CSRF.');
+        expect($teacher->submit($cvPage, $review)[0] === 422, 'CV import requires explicit confirmation.');
+        redirectIs($other->submit($cvPage, $review + ['confirmed' => '1'], $docs), $docs);
+        redirectIs($teacher->submit($cvPage, $review + ['confirmed' => '1']), $docs);
+
+        $stored = json_decode($db->query("SELECT sections FROM teacher_profiles WHERE user_id = $teacherId")->fetchColumn(), true);
+        expect($stored['biography']['bio'] === 'I teach <physics> and use practical demonstrations.'
+            && $stored['subjects']['levels'] === ['Junior secondary'] && in_array('Biology', $stored['subjects']['subjects'], true)
+            && $stored['skills']['certifications'] === ['Safeguarding', 'First aid', 'Child safeguarding']
+            && $stored['skills']['skills'] === ['Lesson planning', 'Assessment'],
+            'Reviewed suggestions add missing data while keeping saved biography, levels, skills and certifications.');
+        expect((int) $db->query("SELECT COUNT(*) FROM teacher_experiences WHERE teacher_id = $teacherId")->fetchColumn() === 4
+            && (int) $db->query("SELECT COUNT(*) FROM teacher_experiences WHERE organisation = 'Corrected CV School'")->fetchColumn() === 1
+            && (int) $db->query("SELECT COUNT(*) FROM teacher_qualifications WHERE teacher_id = $teacherId")->fetchColumn() === 3,
+            'Apply edited rather than raw suggestions and retain existing repeatable rows.');
+        $finished = $db->query('SELECT status, draft FROM teacher_cv_extractions')->fetch();
+        expect($finished === ['status' => 'applied', 'draft' => null], 'Confirmation clears the transient JSON.');
+        redirectIs($teacher->submit($cvPage, $review + ['confirmed' => '1'], $docs), $docs);
+        expect((int) $db->query("SELECT COUNT(*) FROM teacher_experiences WHERE teacher_id = $teacherId")->fetchColumn() === 4,
+            'A repeated confirmation cannot duplicate saved entries.');
+        echo "PASS queued CV extraction, manual scan fallback, owner-only review, confirmed edits and preservation of saved fields.\n";
         $download = $dash . '/documents/download?id=' . $first['id'];
         [$status, $headers, $bytes] = $teacher->send($download);
         expect($status === 200 && $bytes === $pdf && ($headers['content-type'] ?? '') === 'application/pdf'
@@ -200,14 +355,17 @@ try {
             && request($base, '/storage/teacher-documents/' . $first['storage_key'])[0] === 404, 'The stored file has no public URL.');
 
         $docx = $work . '/fixture.docx';
-        $zip = new ZipArchive();
-        expect($zip->open($docx, ZipArchive::CREATE) === true, 'Create the DOCX test fixture.');
-        $zip->addFromString('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
-        $zip->addFromString('word/document.xml', '<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body/></w:document>');
-        $zip->close();
+        sampleCvDocx($docx, ['Experience', 'Tutor at Alternate School | 2021 - Present']);
         $docxBytes = file_get_contents($docx);
         redirectIs(upload($base, $teacher, 'cv', 'resume-updated.docx', $docxBytes), $docs);
         $newCvId = $db->query("SELECT id FROM teacher_documents WHERE kind = 'cv'")->fetchColumn();
+        runCvWorker($work);
+        expect(str_contains($teacher->send($cvPage)[2], 'Alternate School'), 'The replacement DOCX provides a new draft.');
+        redirectIs($teacher->submit($cvPage, $review + ['confirmed' => '1'], $docs), $docs);
+        expect(str_contains($teacher->send($docs)[2], 'That extraction draft is no longer available.'), 'An old form cannot apply a replacement CV draft.');
+        $db->exec("UPDATE teacher_cv_extractions SET expires_at = CURRENT_TIMESTAMP(6) - INTERVAL 1 MINUTE WHERE document_id = " . (int) $newCvId);
+        redirectIs($teacher->send($cvPage), $docs);
+        expect(str_contains($teacher->send($docs)[2], 'extraction draft expired'), 'An expired draft cannot be opened.');
         [$status, , $downloaded] = $teacher->send($dash . '/documents/download?id=' . $newCvId);
         expect($status === 200 && $downloaded === $docxBytes, 'DOCX attachments preserve binary bytes.');
         expect($teacher->send($download)[0] === 404 && !file_exists($files . '/' . $first['storage_key']), 'Replacing a CV removes the previous version.');
@@ -215,6 +373,7 @@ try {
         expect((int) $db->query('SELECT COUNT(*) FROM teacher_documents')->fetchColumn() === 2, 'The CV and supporting file can coexist.');
         $public = $guest->send('/find-teachers')[2];
         expect(str_contains($teacher->send($docs)[2], '10 of 10 sections complete')
+            && str_contains($teacher->send($dash)[2], 'CV on file')
             && (int) $db->query('SELECT COUNT(*) FROM teacher_profiles WHERE published_at IS NOT NULL')->fetchColumn() === 0
             && !str_contains($public, 'Adùnní') && !str_contains($public, 'resume-updated.docx'),
             'A complete profile and original files remain private.');

@@ -10,14 +10,22 @@
           integrity="sha384-yEPZ7jP9S0QKiUQ0m3jjsO4ProIW7wvR9gXkI7JOGa2XVsw53Yke2bsdkBbjmmiX" crossorigin="anonymous">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&amp;family=DM+Sans:wght@400..700&amp;display=swap">
     <link rel="stylesheet" href="/assets/app.css">
+    <?php if ($data['teacherWorkspace'] ?? false): ?>
+        <link rel="stylesheet" href="/assets/teacher-dashboard.css">
+        <script src="/assets/teacher-dashboard.js" defer></script>
+    <?php endif; ?>
     <script src="/assets/public.js" defer></script>
 </head>
 <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <?php require $partials . '/header.php'; ?>
-    <main id="main" tabindex="-1">
+    <?php if ($data['teacherWorkspace'] ?? false): ?>
         <?= $data['content'] ?>
-    </main>
-    <?php require $partials . '/footer.php'; ?>
+    <?php else: ?>
+        <?php require $partials . '/header.php'; ?>
+        <main id="main" tabindex="-1">
+            <?= $data['content'] ?>
+        </main>
+        <?php require $partials . '/footer.php'; ?>
+    <?php endif; ?>
 </body>
 </html>

@@ -42,13 +42,6 @@ final class AuthService
         return array_values(array_filter(Role::cases(), static fn (Role $role): bool => in_array($role->value, $slugs, true)));
     }
 
-    public function school(int $userId): ?array
-    {
-        $query = ($this->database)()->prepare('SELECT school_name, approved_at FROM school_onboarding WHERE user_id = ?');
-        $query->execute([$userId]);
-        return $query->fetch() ?: null;
-    }
-
     public function checkPassword(string $email, #[\SensitiveParameter] string $password): ?array
     {
         $user = $this->findUser($email);
@@ -94,22 +87,7 @@ final class AuthService
         });
     }
 
-    public function confirmEmail(
-        #[\SensitiveParameter] string $token,
-        #[\SensitiveParameter] string $password,
-        Role $role,
-        string $school,
-    ): bool {
-        if (!in_array($role, [Role::School, Role::Parent], true)) {
-            throw new RuntimeException('Invalid role for this activation flow.');
-        }
-
-        return $this->consume(EmailToken::Verification, $token, function (PDO $db, int $id) use ($password, $role, $school): void {
-            $this->activate($db, $id, password_hash($password, PASSWORD_DEFAULT), $role, $school);
-        });
-    }
-
-    public function canConfirmTeacherEmail(#[\SensitiveParameter] string $token): bool
+    public function canConfirmProfileEmail(#[\SensitiveParameter] string $token): bool
     {
         $query = ($this->database)()->prepare(
             'SELECT 1 FROM email_verification_tokens t JOIN users u ON u.id = t.user_id
@@ -120,23 +98,27 @@ final class AuthService
         return $query->fetchColumn() !== false;
     }
 
-    /** The teacher profile is persisted in the same transaction that verifies the account. */
-    public function confirmTeacherEmail(
+    /** The profile is persisted in the same transaction that verifies the account. */
+    public function confirmProfileEmail(
+        Role $role,
         #[\SensitiveParameter] string $token,
         string $email,
-        #[\SensitiveParameter] string $passwordHash,
+        #[\SensitiveParameter] Closure $passwordHash,
         Closure $createProfile,
     ): ?array {
+        if (!$role->hasProfileRegistration()) {
+            throw new RuntimeException('Invalid role for profile activation.');
+        }
         $account = null;
-        $this->consume(EmailToken::Verification, $token, function (PDO $db, int $id) use ($passwordHash, $createProfile, &$account): void {
-            $this->activate($db, $id, $passwordHash, Role::Teacher);
+        $this->consume(EmailToken::Verification, $token, function (PDO $db, int $id) use ($role, $passwordHash, $createProfile, &$account): void {
+            $this->activate($db, $id, $passwordHash(), $role);
             $createProfile($id);
             $account = ['id' => $id, 'version' => (int) $this->findUser($id)['auth_version']];
-        }, teacherEmail: $email);
+        }, profileEmail: $email, profileRole: $role);
         return $account;
     }
 
-    private function activate(PDO $db, int $id, #[\SensitiveParameter] string $hash, Role $role, string $school = ''): void
+    private function activate(PDO $db, int $id, #[\SensitiveParameter] string $hash, Role $role): void
     {
         $db->prepare('UPDATE users SET email_verified_at = CURRENT_TIMESTAMP(6), password_hash = ?, auth_version = auth_version + 1 WHERE id = ?')
             ->execute([$hash, $id]);
@@ -151,9 +133,6 @@ final class AuthService
         $grant->execute([$id, $role->value]);
         if ($grant->rowCount() !== 1) {
             throw new RuntimeException('The reference account roles have not been seeded.');
-        }
-        if ($role === Role::School) {
-            $db->prepare('INSERT INTO school_onboarding (user_id, school_name) VALUES (?, ?)')->execute([$id, $school]);
         }
     }
 
@@ -183,7 +162,7 @@ final class AuthService
         return $token;
     }
 
-    private function consume(EmailToken $purpose, #[\SensitiveParameter] string $token, Closure $onSuccess, ?string $teacherEmail = null): bool
+    private function consume(EmailToken $purpose, #[\SensitiveParameter] string $token, Closure $onSuccess, ?string $profileEmail = null, ?Role $profileRole = null): bool
     {
         $db = ($this->database)();
         $table = $purpose->value;
@@ -195,7 +174,7 @@ final class AuthService
             return false;
         }
 
-        return Database::transaction($db, function (PDO $db) use ($purpose, $table, $hash, $id, $onSuccess, $teacherEmail): bool {
+        return Database::transaction($db, function (PDO $db) use ($purpose, $table, $hash, $id, $onSuccess, $profileEmail, $profileRole): bool {
             // Issuance and consumption both lock the owner before changing token state.
             $user = $this->findUser((int) $id, true);
             if ($user === null || $user['suspended_at'] !== null) {
@@ -206,9 +185,9 @@ final class AuthService
                 return false;
             }
 
-            if ($teacherEmail !== null) {
+            if ($profileEmail !== null) {
                 $roles = $this->roles((int) $id);
-                if ($user['email'] !== $teacherEmail || ($roles !== [] && !in_array(Role::Teacher, $roles, true))) {
+                if ($user['email'] !== $profileEmail || ($roles !== [] && !in_array($profileRole, $roles, true))) {
                     return false;
                 }
             }

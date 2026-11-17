@@ -28,7 +28,7 @@ The three customer categories are Teacher / NYSC Member, School / Educational In
 | BR-04 | Schools can post teaching vacancies after management approves their accounts. | A school pending approval cannot post through the interface or by submitting a request directly to the server. After management approval, the school can post through the school workflow. |
 | BR-05 | Parents can submit private tutoring requests. | A parent can submit a tutoring request to Furoeducare. The request is visible to the submitting parent and authorised management staff. Public pages and unrelated accounts cannot access it. |
 | BR-06 | Management controls verification, recruitment, shortlisting, CV access and placement. | Only authorised staff can take the corresponding management actions. Schools can post vacancies and teachers can apply without gaining staff permissions. |
-| BR-07 | Teachers can apply before professional verification. Final placement requires professional verification. | An unverified teacher can submit an otherwise eligible application. Final placement is refused while that teacher is unverified and can proceed for an eligible verified teacher through the management workflow. |
+| BR-07 | A teacher with a complete profile and verified email can apply before professional verification. Final placement requires current professional verification. | Application eligibility uses profile completion and email verification. Final placement requires an active account, an accepted current CV and a recorded professional decision with all required checks confirmed. |
 | BR-08 | Schools have restricted dashboards until approved. | Before approval, a school sees the restricted dashboard and the server enforces the same restrictions on the underlying actions. |
 | BR-09 | Each school has one account in the initial release. | Registration and management approval protect against a second account for the same institution, including concurrent attempts. The institution identity and duplicate-handling policy will be settled before this workflow is implemented. |
 | BR-10 | Teachers upload CVs for automatic extraction, review the extracted fields and save editable profiles. | A supported CV triggers extraction. The teacher reviews and corrects suggestions and saves their profile, which remains editable. Only reviewed, saved data can reach the profile publication workflow. An extraction failure is reported and leaves saved profile data intact. |
@@ -42,6 +42,16 @@ The three customer categories are Teacher / NYSC Member, School / Educational In
 | BR-18 | Payment features remain disabled until formally activated. | Initial-release workflows can be completed free of charge and expose no checkout or payment processing. Formal activation is a separate project decision. |
 
 School approval, teacher professional verification, teacher directory approval and original CV access approval are separate business decisions. The stated vacancy and placement gates apply even when actions bypass the interface.
+
+Candidate requests link a verified parent to their submitted tutoring request or an approved school to its vacancy. Staff claim cases, review their purpose and publish shortlists. A shortlist reveals the candidate reference and any currently public professional title. Restricted professional fields and original CVs require separate, scoped, time-limited grants approved by an assigned administrator under the configured [disclosure policy](DISCLOSURE_POLICY.md).
+
+Parents can submit a general tutoring request or start from a particular teacher's public reference. Both routes use the same private request history. The form records learning needs and schedule preferences without asking for learner identifiers or a street address. Only the parent can view drafts. Authorised staff can review submitted requests, shortlist suitable tutors and confirm arrangements after professional verification. The parent receives in-app notifications of status changes.
+
+Schools own their teaching vacancy drafts. Only approved schools can submit them for management review. Staff start the review and approve or reject the vacancy before publishing an approved version. A change to approved or published vacancy content requires a fresh review. Visitors can browse published vacancies while the school remains approved and the application deadline is current.
+
+Teachers and NYSC members with a complete profile and verified email can apply before professional verification. Each teacher can apply once per vacancy with their saved professional information and an optional statement. Teachers can bookmark jobs, track only their own applications and withdraw while an application is active. Each application retains its internal candidate reference, the posting shown at submission, a limited professional profile snapshot and its status history.
+
+Recruitment staff move applications through review, shortlisting, interview, offer and final placement or an unsuccessful outcome. The Successful status records final placement and requires current professional verification. Schools have no access to applications through this workflow. Any release of candidate information or original documents must go through the separate management authorisation process.
 
 ## Engineering requirements
 
@@ -59,9 +69,9 @@ These questions affect implementation details. The agreed rules above apply whil
 | Area | Decisions to record before the relevant workflow is built |
 | --- | --- |
 | Public teacher directory and sharing | Exact public and managed-sharing field lists, treatment of identifying details and free text, whether listing requires professional verification, and whether edits to a published profile require renewed approval. |
-| School onboarding | How to identify one real-world institution, treat branches and resolve duplicate registrations. Confirm the actions available in the restricted dashboard, including any restrictions on teacher, information or training requests. |
+| School onboarding | Consider an official institution identifier and procedures for reconciling aliases, branches and disputed duplicate accounts. The initial matching and permissions are recorded under School registration and review. |
 | Recruitment | Verification evidence and decision criteria, vacancy visibility and eligibility, application stages, and the operational meaning of final placement. |
-| CV handling | Handling of scanned files, extraction failures and review. Confirm eligible original CV requesters, permitted purposes, the scope and duration of approved access, and retention or deletion rules. |
+| CV handling | Confirm eligible original CV requesters, permitted purposes, the scope and duration of approved access, and retention or deletion rules. |
 | Privacy | Define the disclosed privacy policy, lawful grounds and permitted recipients for processing and sharing, retention, and how data rights requests are handled. Assess the applicable requirements, including the [Nigeria Data Protection Act, 2023](https://ndpc.gov.ng/wp-content/uploads/2024/03/Nigeria_Data_Protection_Act_2023.pdf). |
 | Notifications and services | Confirm email events and recipients, library distribution rights and access rules, and the training request lifecycle. |
 
@@ -81,4 +91,30 @@ For each task, inspect the current project, state a brief plan, implement the re
 
 Registration requires a Teacher or NYSC Member category, first and last names, email, phone number, password and confirmation, acceptance of the Terms of Use, and acknowledgement of the Privacy Notice. A verified email opens the private teacher dashboard. Signup and profile completion never trigger public listing.
 
-The private professional profile has ten independently saved sections covering personal and contact information, biography, education and qualifications, work and teaching experience, subjects and teaching levels, skills and certifications, preferred locations, employment and tutoring preferences, availability, and CV and professional documents. Qualifications and work experience support multiple entries. NYSC service details are optional. The dashboard shows completion and missing information. Teachers can save sections before uploading a CV. CV extraction remains a later phase.
+The private professional profile has ten independently saved sections covering personal and contact information, biography, education and qualifications, work and teaching experience, subjects and teaching levels, skills and certifications, preferred locations, employment and tutoring preferences, availability, and CV and professional documents. Qualifications and work experience support multiple entries. NYSC service details are optional. The dashboard shows completion and missing information. Teachers can save sections before uploading a CV.
+
+## Assisted CV extraction
+
+Accept text-based PDF and DOCX CVs up to 5 MiB. A private worker extracts structured suggestions into a temporary draft. Teachers can correct, omit or complete information and explicitly confirm before saving. Confirmation preserves existing profile data. Scanned PDFs receive an explanation and a manual editing path.
+
+## Teacher dashboard
+
+The Teacher / NYSC Member dashboard provides Overview, My Professional Profile, CV and Documents, Teaching Jobs, My Applications, Placement Opportunities, Availability, Saved Jobs, Digital Library, Messages, Notifications and Settings. Professional verification, profile completion and CV status use the signed-in teacher’s saved profile. Pending features show informational states. Availability supports full-time and part-time teaching, private and online tutoring, and an exclusive temporarily unavailable option.
+
+## School registration and review
+
+Schools provide a profile and representative details before email verification. Each normalized institution identity has one account. Pending schools can edit their profile, save private drafts, browse public materials and view settings and review updates. Publication, active recruitment, restricted teacher details and approved shortlists require school approval. Administrators record decisions and reasons with an attributable timestamp. A suspension revokes sign-in access.
+
+## Parent registration and account management
+
+Parent and guardian signup collects adult contact details, a password and legal acknowledgements. Email verification precedes tutoring request submission. The private dashboard contains public resource links, owner-only profile settings and tutoring request tracking. Authorised staff use submitted lesson preferences and the existing adult contact details to coordinate arrangements.
+
+## Administrator verification
+
+Administrators use separate queues for teacher professional verification, school approval, document review and requested corrections. Staff must confirm the applicable checks and record decision notes. The system records the reviewer, time and transition, and publishes an owner-scoped verification event. CV extraction and teacher directory publication have independent workflows.
+
+## Public teacher directory
+
+Visitors can search available, approved listings and open a public profile by its teacher reference. Each result contains the approved professional information. Publication requires documented authorisation, with separate permission for the name and photograph. A listing becomes unavailable when approval is withdrawn or its owner suspends availability, loses the Teacher role, or cannot sign in.
+
+Eligible parent and school accounts can save teachers and return to a selected teacher after sign-in or email verification. Parents and approved schools can submit a private request to Furoeducare. Schools awaiting approval can save a private draft and submit it after approval.

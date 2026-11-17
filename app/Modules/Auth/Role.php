@@ -26,6 +26,21 @@ enum Role: string
         return '/dashboard/' . $this->value;
     }
 
+    public function verificationPath(): string
+    {
+        return match ($this) {
+            self::Teacher => '/verify-teacher',
+            self::School => '/verify-school',
+            self::Parent => '/verify-parent',
+            default => '/verify-email',
+        };
+    }
+
+    public function hasProfileRegistration(): bool
+    {
+        return $this !== self::Admin;
+    }
+
     /** @return list<self> */
     public static function publicRoles(): array
     {

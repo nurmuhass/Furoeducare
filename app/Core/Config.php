@@ -20,6 +20,10 @@ final class Config
         public readonly string $authMailDirectory,
         public readonly string $authSessionDirectory,
         public readonly string $teacherDocumentDirectory,
+        public readonly string $disclosurePolicyVersion,
+        public readonly string $disclosurePolicyApprovalRef,
+        public readonly string $disclosurePrivacyNoticeUrl,
+        public readonly string $disclosurePrivacyContact,
     ) {
     }
 
@@ -72,6 +76,10 @@ final class Config
             $read('AUTH_MAIL_DIR', $root . '/storage/mail'),
             $read('AUTH_SESSION_DIR', $root . '/storage/sessions'),
             $read('TEACHER_DOCUMENT_DIR', $root . '/storage/teacher-documents'),
+            $read('DISCLOSURE_POLICY_VERSION', ''),
+            $read('DISCLOSURE_POLICY_APPROVAL_REF', ''),
+            $read('DISCLOSURE_PRIVACY_NOTICE_URL', ''),
+            $read('DISCLOSURE_PRIVACY_CONTACT', ''),
         );
     }
 

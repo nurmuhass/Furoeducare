@@ -1,5 +1,83 @@
 # Furoeducare Implementation Progress
 
+## Private tutoring requests
+
+Parents can start general requests or use a public teacher reference. Both use private drafts, owner-only tracking, recommendations and confirmed arrangements. Staff manage submitted requests in the tutoring queue, search for compatible tutors, shortlist candidates and confirm professionally verified tutors. Status changes record history and in-app notifications.
+
+| Area | Files |
+| --- | --- |
+| Parent and staff workflow | `app/Modules/Parent/`, `config/parent-routes.php`, `bootstrap/app.php` and administrator dashboard links |
+| Directory integration | `DirectoryController.php`, `DirectoryInteractions.php` and `PublicDirectory.php` |
+| Database | Migrations 0039–0043 extend tutoring requests, preserve existing records and add candidates and request history. |
+| Tests | `tests/tutoring-workflow.php`, `tests/tutoring.php`, `tests/parent.php`, `tests/directory.php` and `tests/database.php` |
+| Documentation | Project requirements, architecture, decisions, database reference, parent account guide, progress, test plan and the draft privacy notice |
+
+Verified on Windows with PHP 8.5.12 and isolated MySQL 8.4.13 schemas. The tutoring workflow, tutoring HTTP, parent, directory, database and HTTP foundation suites passed. The database suite verified all 43 migrations, preserved earlier tutoring requests and tested rollback of the reversible tables.
+
+See the [private tutoring test plan](TEST_PLAN.md#private-tutoring-requests) for the manual walkthrough.
+
+## Teacher job applications
+
+The application flow now captures an optional statement, an internal candidate reference and a limited copy of the teacher's saved professional fields. Teachers can save jobs and track or withdraw applications. Staff can advance candidates through review, interview, offer and verified final placement.
+
+| Area | Files |
+| --- | --- |
+| Application flow | `app/Modules/Vacancy/`, `app/Modules/Verification/TeacherEligibility.php`, `config/vacancy-routes.php` and `bootstrap/app.php` |
+| Teacher dashboard | `TeacherController.php`, `DashboardPage.php` and the applications, saved jobs and overview views |
+| Storage | Migrations 0035–0038 extend applications, backfill references and add saved jobs. The existing application history table retains every valid transition. |
+| Tests | `tests/application-workflow.php`, `tests/vacancies.php`, `tests/database.php` and `tests/teacher.php` |
+| Documentation | Project requirements, architecture, decisions, database reference, implementation progress and test plan |
+
+Verified on Windows with PHP 8.5.12 and isolated MySQL 8.4.13 schemas. The application transition matrix, vacancy HTTP, teacher, dashboard, database and foundation suites passed. The database suite verified all 38 migrations, upgraded legacy applications without changing their timestamps or history, and checked rollback and reapplication.
+
+See the [manual application walkthrough](TEST_PLAN.md#teacher-job-applications).
+
+## Teaching vacancies
+
+The public job board, school vacancy workspace, staff moderation and teacher application history are implemented.
+
+| Area | Files |
+| --- | --- |
+| Vacancy module and routing | `app/Modules/Vacancy/`, `config/vacancy-routes.php`, `bootstrap/app.php`, `app/Modules/Site/resources.php` |
+| Dashboard integration | `SchoolController.php`, the school and administrator dashboard views, `TeacherController.php`, `DashboardPage.php` and the teacher jobs, applications and overview views |
+| Eligibility and storage | `app/Modules/Verification/TeacherEligibility.php` and migrations 0031–0034 |
+| Automated tests | `tests/vacancies.php`, `tests/database.php`, `tests/teacher.php`, `tests/school.php` and `tests/foundation.php` |
+| Documentation | Project requirements, architecture, decisions, database reference, implementation progress and test plan |
+
+Verified on Windows using PHP 8.5.12 and isolated MySQL 8.4.13 schemas. The vacancy, database, school, teacher, dashboard, CV extraction and HTTP foundation suites passed. The database suite applied all 34 migrations and exercised rollback and reapplication. The vacancy suite also confirmed that a school rename preserves the advertised employer on an existing revision and that text changes such as `01` to `1` are saved.
+
+See the [vacancy test plan](TEST_PLAN.md#teaching-vacancies) for the manual walkthrough.
+
+## Public teacher directory
+
+The Find Teachers page reads explicitly authorised public listings and live availability. It supports anonymous search, filter-preserving pagination, public profiles, private bookmarks and managed requests for a particular teacher. Staff can approve a listing, authorise its optional name or portrait, withdraw it, and read submitted requests. Pending schools can save private drafts.
+
+| Area | Files in this phase |
+| --- | --- |
+| Directory and approval | `app/Modules/Directory/`, `config/directory-routes.php`, `bootstrap/app.php`, `app/Modules/Site/resources.php` and dashboard links |
+| Authentication | Auth session, sign-in, mail, registration and verification forms for the selected teacher reference |
+| Data | Migrations 0027–0030 for public listings, filter tags, bookmarks and private teacher requests |
+| Presentation and checks | `public/assets/app.css`, `tests/directory.php`, and updated database and foundation suites |
+
+Verified on Windows with PHP 8.5.12, GD and an isolated MySQL 8.4.13 instance. `tests/directory.php` passed all three groups: publication and public field privacy, visibility and filtered pagination, and authentication continuation and private account actions. The database, authentication and HTTP foundation suites also passed. The existing preview database and demo records were left intact.
+
+The [manual test plan](TEST_PLAN.md#public-teacher-directory) walks through publication, search, authentication and private requests. Submitted requests are available to administrators for later processing.
+
+## Administrator verification
+
+The administrator dashboard links to separate teacher, school, document and correction queues. Administrator decisions store the reviewer, decision notes, checks and timestamp. Each decision writes its audit record and recipient notification in the same transaction. Admin downloads use the private attachment service and are audited. A corrected or replaced CV never grants professional verification on its own.
+
+| Area | Files in this phase |
+| --- | --- |
+| Review module | `app/Modules/Verification/`, `config/verification-routes.php`, `bootstrap/app.php`, and administrator dashboard navigation |
+| Teacher and school | Role controllers, repositories, review screens and owner dashboards in `app/Modules/Teacher/` and `app/Modules/School/` |
+| Schema | Migrations 0022–0026 for teacher verification state and review records, document reviews, school review checks and notification events |
+| Tests | `tests/verification.php`, plus updated database, authentication, teacher and school suites |
+
+All 35 automated test groups passed on PHP 8.5.12 and MySQL 8.4.13, including the fresh-schema migration, staff authorization, stale and invalid decisions, suspension, notification ownership and placement eligibility. All 163 PHP files passed syntax checks. The existing local preview database was upgraded through migration 0026, and HTTP checks confirmed all four demo logins and administrator-only access to the queues.
+
+The [manual test plan](TEST_PLAN.md#administrator-verification) covers all four queues and the teacher and school review paths. The application and final placement policies are available for the future recruitment service. Verification notifications are available in-app. Email delivery for these events is pending.
+
 ## Initial PHP foundation
 
 Completed for review · 16 November 2026
@@ -128,3 +206,116 @@ Teacher and NYSC Member registration captures contact details, a password and co
 - All four HTTP foundation check groups passed. Composer strict validation, platform checks, PHP syntax checks, JavaScript syntax and a repeatable-row focus and limits check passed.
 
 The [manual test steps](TEST_PLAN.md#teacher-onboarding) cover browser appearance and the full workflow. Interactive browser testing and production mail delivery were outside this verification. The Terms of Use and Privacy Notice await legal review. CV extraction remains a separate phase.
+
+## Assisted CV extraction
+
+Implemented for review · 16 November 2026
+
+New CV uploads queue a private extraction job. A PHP CLI worker parses supported text-based PDFs and DOCX files and saves a schema-validated draft. Teachers review editable suggestions, correct or skip entries, and confirm before profile data is added. Existing records are preserved. Scanned and unreadable CVs lead back to manual editing. A draft expires after seven days, and confirmation clears its JSON.
+
+### Files in this phase
+
+| Area | Files |
+| --- | --- |
+| Extraction | Added `app/Modules/Teacher/Cv/CvExtractor.php`, `RuleBasedExtractor.php`, `IsolatedCvExtractor.php`, `CvContent.php`, `CvParser.php`, `CvDraft.php`, `CvJobs.php` and `ExtractionFailure.php`. |
+| Worker and database | Added `bin/cv-worker.php`, `bin/cv-parse.php` and `database/migrations/0015_create_teacher_cv_extractions.php`. Updated `composer.json` and `composer.lock`. |
+| Teacher workflow | Updated `TeacherController.php`, `TeacherDocuments.php`, `TeacherInput.php` and `TeacherRepository.php` under `app/Modules/Teacher/`. Added `Views/cv-review.php` and `Views/cv-status.php`, and updated `Views/documents.php` and `Views/repeatable.php`. Updated `bootstrap/app.php`, `config/teacher-routes.php` and `public/assets/public.js`. |
+| Tests | Added `tests/cv-extraction.php` and `tests/support/cv-fixtures.php`. Extended `tests/teacher.php` and `tests/database.php`. |
+| Documentation | Added `docs/CV_EXTRACTION.md`. Updated `README.md`, `docs/PROJECT_REQUIREMENTS.md`, `docs/ARCHITECTURE.md`, `docs/DATABASE.md`, `docs/DECISIONS.md`, `docs/TEST_PLAN.md` and this record. |
+
+### Verification
+
+Twenty-three test groups passed on PHP 8.5.12 and disposable MySQL 8.4.13 schemas. The synthetic fixtures cover selectable-text PDFs, DOCX, image-only PDF, missing fields, unusual section order and multiple employers. HTTP tests cover private uploads, queue processing, manual fallback, owner and role boundaries, edited confirmation, preservation of saved values, duplicate submission, replacement and expiry. All fifteen migrations apply from an empty schema. Composer strict validation and platform checks, PHP syntax, and JavaScript syntax passed.
+
+The [manual test plan](TEST_PLAN.md#cv-extraction) records the complete correction flow. Interactive browser review and production worker scheduling remain unverified.
+
+## Teacher / NYSC dashboard
+
+Implemented for review · 16 November 2026
+
+Verified teachers sign in to Overview. The workspace provides all twelve requested pages with a responsive sidebar, account menu and theme-aware layout. The overview reads profile completion, professional verification and CV presence from the signed-in account. The profile, document review, availability and settings pages use their existing data and actions. Pending recruitment and service features show informational pages and unavailable metrics.
+
+Availability allows any compatible combination of teaching and tutoring preferences. Temporarily unavailable is exclusive. The existing date and schedule data remain readable. Profile updates are owner-scoped and professional verification and publication timestamps cannot be changed by the teacher form.
+
+### Files in this phase
+
+| Area | Files |
+| --- | --- |
+| Dashboard and data | Added `app/Modules/Teacher/DashboardPage.php` and `database/migrations/0016_add_teacher_professional_verification.php`. Updated `TeacherController.php`, `TeacherInput.php` and `TeacherRepository.php` within the Teacher module. |
+| Templates and frontend | Added `Views/workspace.php`, `overview.php`, `availability.php`, `settings.php` and `pending.php` in the Teacher module. Updated `Views/dashboard.php`, `profile-section.php` and `cv-review.php`, `resources/views/layout.php` and `public/assets/public.js`. Added `public/assets/teacher-dashboard.css` and `teacher-dashboard.js`. |
+| Tests | Added `tests/dashboard.php`. Updated `tests/teacher.php` and `tests/database.php`. |
+| Documentation | Updated `README.md`, `docs/PROJECT_REQUIREMENTS.md`, `docs/ARCHITECTURE.md`, `docs/AUTHENTICATION.md`, `docs/DATABASE.md`, `docs/CV_EXTRACTION.md`, `docs/DECISIONS.md`, `docs/TEST_PLAN.md` and this record. |
+
+### Verification
+
+All 25 automated test groups passed on PHP 8.5.12 and disposable MySQL 8.4.13. The tests cover all dashboard pages, saved status indicators, cross-account reads and writes, forged profile fields, CSRF and role restrictions, legacy and multiple availability preferences, and CV extraction and account regressions. All sixteen migrations applied to an empty schema. PHP, Composer, and JavaScript checks passed.
+
+The in-app browser showed no horizontal overflow at 390, 768 and 1440 CSS pixels on the availability, profile and overview pages. Mobile and account menus closed on Escape and returned keyboard focus to their controls. Settings applied light, dark and system appearance.
+
+The [test plan](TEST_PLAN.md#teacher-dashboard) includes the manual verification steps.
+
+## School registration and review
+
+Implemented for review · 16 November 2026
+
+The school registration form collects the institutional and representative details and opens a restricted account after email verification. A unique normalized name, state and city identifies each complete school record. Legacy schools with no location reserve their existing name until the profile is completed.
+
+Verified schools can edit their own profile and drafts, browse public resources, view settings and read school review notifications. Approval-gated routes deny publication, active recruitment, restricted teacher information and approved shortlists while the profile is unapproved. These recruitment workflows remain outside this phase.
+
+Administrators can approve, reject, request corrections or suspend a school. Reviews use the current profile revision and retain the reviewer, reason and timestamp. Suspension updates shared authentication and revokes old sessions.
+
+### Files in this phase
+
+| Area | Files |
+| --- | --- |
+| School module | Added `app/Modules/School/SchoolRegistration.php`, `SchoolController.php`, `SchoolRepository.php`, `SchoolInput.php`, `SchoolPolicy.php`, `SchoolStatus.php` and `InstitutionAlreadyRegistered.php`. Added `Views/registration.php`, `dashboard.php`, `profile-fields.php`, `legal-fields.php`, `drafts.php`, `review-list.php` and `review.php`. |
+| Shared application | Added `app/Modules/Auth/LegalNotice.php` and `resources/views/form-fields.php`. Updated `app/Modules/Auth/AuthController.php`, `AuthService.php`, `AuthInput.php`, `AuthSession.php`, `AuthMailer.php`, `Role.php`, `Views/form.php` and `Views/dashboard.php`, plus `app/Modules/Teacher/TeacherController.php`, `TeacherInput.php` and `Views/fields.php`. |
+| Routing and storage | Added `config/school-routes.php` and migrations `0017_expand_school_onboarding.php`, `0018_create_school_reviews.php` and `0019_create_school_recruitment_drafts.php`. Updated `config/auth-routes.php` and `bootstrap/app.php`. |
+| Tests | Added `tests/school.php` and `tests/support/school-fixtures.php`. Updated `tests/foundation.php`, `tests/authentication.php` and `tests/database.php`. |
+| Documentation | Added `docs/SCHOOL_ONBOARDING.md`. Updated `README.md`, `docs/PROJECT_REQUIREMENTS.md`, `docs/ARCHITECTURE.md`, `docs/AUTHENTICATION.md`, `docs/DATABASE.md`, `docs/DECISIONS.md`, `docs/TEST_PLAN.md` and this record. |
+
+### Verification
+
+All 30 automated test groups passed on PHP 8.5.12 and disposable MySQL 8.4.13. The school suite covers form and legal validation, email/session activation, matching modern and legacy institutions, owner-only drafts, forged fields, direct approval gates, decisions and history, suspension and restoration, and verification throttling. All 19 migrations applied from an empty schema. All 124 PHP files passed linting. Composer strict and platform checks and the Git whitespace check passed.
+
+The [test plan](TEST_PLAN.md#school-registration-and-review) gives the manual verification steps. Verification email used the local mail spool. Production email delivery and interactive browser review remain unverified for this phase.
+
+## Parent registration and account management
+
+Implemented for review · 16 November 2026
+
+Parents and guardians register with their own contact details and legal acknowledgements. Email confirmation creates the private profile and opens the dashboard. The workspace provides all eleven requested pages, including editable account settings and links to public teacher and library pages.
+
+Parents can save and edit private tutoring drafts and submit a reviewed draft while their email is verified. Requests are scoped to the account owner. Submitted details stay on file for a later processing phase. Recommendations, saved teachers, arrangements, messaging and notifications show informational states.
+
+### Files in this phase
+
+| Area | Files |
+| --- | --- |
+| Parent module | Added `app/Modules/Parent/ParentRegistration.php`, `ParentController.php`, `ParentInput.php`, `ParentRepository.php` and the five parent views under `app/Modules/Parent/Views/`. |
+| Shared signup | Added `app/Modules/Auth/ProfileRegistration.php`, `RegistrationConflict.php`, `app/Support/NigerianStates.php` and `resources/views/legal-acceptance.php`. Updated the authentication controller, service, role, account and registration views, and privacy revision. Updated the school signup adapter, duplicate registration exception, state options and legal fields view. |
+| Routing, schema and frontend | Added `config/parent-routes.php` and migrations `0020_create_parent_profiles.php` and `0021_create_parent_tutoring_requests.php`. Updated `bootstrap/app.php`, `app/Modules/Site/Views/legal.php` and `public/assets/app.css`. |
+| Tests | Added `tests/parent.php` and `tests/support/parent-fixtures.php`. Updated `tests/support/auth-browser.php` and the foundation, authentication, school, teacher and database suites. |
+| Documentation | Added `docs/PARENT_ACCOUNTS.md`. Updated `README.md`, `docs/PROJECT_REQUIREMENTS.md`, `docs/ARCHITECTURE.md`, `docs/AUTHENTICATION.md`, `docs/DATABASE.md`, `docs/DECISIONS.md`, `docs/TEST_PLAN.md` and this record. |
+
+### Verification
+
+All 34 automated test groups passed on PHP 8.5.12 and disposable MySQL 8.4.13 schemas. The parent tests cover adult-only data, validation and consent, verification and resend, cross-browser activation, all dashboard tabs, public links, account and request ownership, stale draft rejection, replay, legacy accounts, and removal of email verification. All 21 migrations applied from an empty schema. PHP lint passed for all 142 files. Composer and Git whitespace checks passed.
+
+The [test plan](TEST_PLAN.md#parent-registration-and-account-management) gives reproducible manual steps. Verification used the private local mail spool. Interactive browser review and production email delivery remain unverified.
+
+## Candidate requests and controlled disclosure
+
+- Approved schools can open a case from an owned vacancy or carry a directory selection into that case. Submitted parent tutoring requests create their linked case automatically. Existing eligible records are backfilled and old school enquiries can be attached to an owned vacancy.
+- Recruitment staff claim and process cases, prepare shortlists, and release candidate references to the requesting account. Restricted profile snapshots and original CVs each require a separate management decision. An issued grant records the recipient, scope, exact profile revision or CV, policy and evidence references, and expiry. Downloads and decisions are auditable.
+- Teachers can pause and resume disclosure and view their grant history. A pause revokes outstanding grants. Registered users can submit privacy rights requests for staff resolution.
+- Real disclosure is disabled until Furoeducare publishes and configures a reviewed policy and notice. See [operational policy](DISCLOSURE_POLICY.md) for activation and evidence requirements.
+
+| Area | Files |
+| --- | --- |
+| Candidate and disclosure workflows | `app/Modules/Disclosure/`, `config/candidate-routes.php`, `config/privacy-routes.php` and `bootstrap/app.php` |
+| Existing workflows | Directory, school, parent, teacher and administrator navigation, plus tutoring case mirroring and private navigation from the site's legal notice |
+| Policy and storage | `.env.example`, `app/Core/Config.php`, migrations 0044–0052 and [operational policy](DISCLOSURE_POLICY.md) |
+| Tests | `tests/disclosure.php`, `tests/database.php`, `tests/directory.php` and the [manual walkthrough](TEST_PLAN.md#candidate-request-and-disclosure-checks) |
+
+The disclosure, migration, foundation, directory, tutoring HTTP and tutoring transition suites passed on PHP 8.5.12. The database-backed tests used isolated MySQL 8.4.13 schemas. The disclosure suite covers forged identifiers, unauthorised direct URLs, expired or revoked grants, stale policy forms, duplicate grants, replaced CVs and privacy requests. Lint passed for 247 PHP files.

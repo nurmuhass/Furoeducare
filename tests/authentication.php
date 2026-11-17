@@ -11,6 +11,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 require __DIR__ . '/support/http.php';
 
 require __DIR__ . '/support/auth-browser.php';
+require __DIR__ . '/support/school-fixtures.php';
 
 function expireSession(string $directory, string $cookie, string $clock, int $seconds): void
 {
@@ -112,20 +113,19 @@ try {
         $school = new AuthBrowser($base);
         redirectIs($school->submit('/register', ['email' => 'school@example.test']), '/login');
         [$schoolToken] = tokenFile($mail, 'school@example.test', '/verify-email');
-        $schoolForm = '/verify-email?token=' . $schoolToken;
-        $schoolFields = ['token' => $schoolToken, 'role' => 'school', 'password' => $password, 'password_confirmation' => $password];
-        expect($school->submit('/verify-email', $schoolFields, $schoolForm)[0] === 422, 'School onboarding must collect the school name.');
-        redirectIs($school->submit('/verify-email', $schoolFields + ['school_name' => 'Example Academy'], $schoolForm), '/login');
-        redirectIs($school->submit('/login', ['email' => 'school@example.test', 'password' => $password]), '/dashboard/school');
+        $schoolForm = '/verify-school?token=' . $schoolToken;
+        redirectIs($school->submit('/verify-email', ['token' => $schoolToken, 'role' => 'school'], '/verify-email?token=' . $schoolToken), $schoolForm);
+        expect($school->submit('/verify-school', ['token' => $schoolToken], $schoolForm)[0] === 422, 'School onboarding requires a complete institutional profile.');
+        redirectIs($school->submit('/verify-school', ['token' => $schoolToken] + schoolFields('school@example.test', $password), $schoolForm), '/dashboard/school');
         [$schoolStatus, , $pending] = $school->send('/dashboard/school');
-        expect($schoolStatus === 200 && str_contains($pending, 'Pending management approval')
-            && !str_contains($pending, 'School approved'), 'Authentication must never approve a school.');
+        expect($schoolStatus === 200 && str_contains($pending, 'Pending approval')
+            && !str_contains($pending, 'Your school is approved.'), 'Authentication must never approve a school.');
         expect($db->query('SELECT approved_at FROM school_onboarding')->fetchColumn() === null, 'New school approval must be null.');
-        $db->exec('UPDATE school_onboarding SET approved_at = CURRENT_TIMESTAMP(6)');
-        expect(str_contains($school->send('/dashboard/school')[2], 'School approved'), 'School dashboard must read the approval record.');
+        $db->exec("UPDATE school_onboarding SET approved_at = CURRENT_TIMESTAMP(6), review_status = 'approved'");
+        expect(str_contains($school->send('/dashboard/school')[2], 'Your school is approved.'), 'School dashboard must read the approval record.');
 
         $parent = new AuthBrowser($base);
-        verifiedAccount($parent, $mail, 'parent', 'parent@example.test', $password);
+        verifiedParent($parent, $mail, 'parent@example.test', $password);
         redirectIs($parent->submit('/login', ['email' => 'parent@example.test', 'password' => $password]), '/dashboard/parent');
         expect($parent->send('/dashboard/teacher')[0] === 403, 'A parent must not enter a teacher dashboard.');
         $db->prepare('INSERT INTO users (email, password_hash, email_verified_at) VALUES (?, ?, CURRENT_TIMESTAMP(6))')

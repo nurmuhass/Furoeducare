@@ -29,11 +29,16 @@ final class AuthController
             return $this->redirect($viewer['roles'][0]->dashboard());
         }
 
+        $flow = Role::tryFrom($request->query('flow'));
+        $values = $request->path === '/resend-verification' && $flow?->hasProfileRegistration() ? ['flow' => $flow->value] : [];
+        if (in_array($request->path, ['/verify-email', '/resend-verification'], true)) {
+            $values['ref'] = AuthInput::teacherRequestReference($request->query('ref'));
+        }
         return $this->form(
             $request->path,
             token: $request->query('token'),
             notice: $this->session->takeNotice(),
-            values: $request->path === '/resend-verification' && $request->query('flow') === 'teacher' ? ['flow' => 'teacher'] : []
+            values: $values,
         );
     }
 
@@ -67,13 +72,11 @@ final class AuthController
             return $this->problem('Access denied', 'Your account cannot open this dashboard.', 403, true);
         }
 
-        $school = $role === Role::School ? $this->accounts->school($viewer['id']) : null;
         return $this->page('dashboard', ucfirst($role->value) . ' dashboard', [
             'path' => $role->dashboard(),
             'role' => $role,
             'roleLinks' => $viewer['roles'],
             'email' => $viewer['email'],
-            'school' => $school,
             'signedIn' => true,
             'csrf' => $this->session->csrf(),
         ]);
@@ -114,8 +117,9 @@ final class AuthController
         $this->accounts->rehashIfNeeded($user, $password);
         $this->limits->clear('login-identity', $identity);
         $this->limits->clear('login-account', $email);
+        $destination = $this->session->teacherRequestPath() ?? $roles[0]->dashboard();
         $this->session->authenticate($id, (int) $user['auth_version']);
-        return $this->redirect($roles[0]->dashboard());
+        return $this->redirect($destination);
     }
 
     private function register(Request $request): Response
@@ -138,7 +142,8 @@ final class AuthController
         $started = hrtime(true);
         $token = $this->accounts->register($email);
         if ($token !== null) {
-            $this->mailer->deliver(EmailToken::Verification, $email, $token);
+            $this->mailer->deliver(EmailToken::Verification, $email, $token,
+                teacherRequestReference: $this->session->teacherRequestReference());
         }
         $this->padEmailResponse($started);
         $this->session->notice('If this address can be registered, check your inbox for a verification link. You can also request a new link or sign in to an existing account.');
@@ -148,8 +153,10 @@ final class AuthController
     private function requestLink(Request $request, EmailToken $purpose): Response
     {
         $email = AuthInput::email($request->form('email'));
-        $teacherFlow = $purpose === EmailToken::Verification && $request->form('flow') === 'teacher';
-        $values = ['email' => $email ?? '', 'flow' => $teacherFlow ? 'teacher' : ''];
+        $requested = Role::tryFrom($request->form('flow'));
+        $flow = $purpose === EmailToken::Verification && $requested?->hasProfileRegistration() ? $requested : null;
+        $reference = $purpose === EmailToken::Verification ? AuthInput::teacherRequestReference($request->form('ref')) : null;
+        $values = ['email' => $email ?? '', 'flow' => $flow?->value ?? '', 'ref' => $reference];
         if ($email === null) {
             return $this->form($request->path, $values, ['email' => 'Enter a valid email address.'], status: 422);
         }
@@ -166,47 +173,40 @@ final class AuthController
         $started = hrtime(true);
         $token = $this->accounts->requestLink($purpose, $email);
         if ($token !== null) {
-            $rebound = $purpose === EmailToken::Verification && $this->session->renewTeacherRegistration($email, $token);
-            $this->mailer->deliver($purpose, $email, $token, teacher: $teacherFlow || $rebound);
+            $deliveryFlow = $flow;
+            $deliveryReference = $reference;
+            if ($purpose === EmailToken::Verification) {
+                $deliveryReference ??= $this->session->teacherRequestReference();
+                foreach ($flow === null ? Role::publicRoles() : [$flow] as $candidate) {
+                    if ($this->session->renewRegistration($candidate, $email, $token)) {
+                        $deliveryFlow = $candidate;
+                        break;
+                    }
+                }
+            }
+            $this->mailer->deliver($purpose, $email, $token, $deliveryFlow, $deliveryReference);
         }
         $this->padEmailResponse($started);
         $this->session->notice('If this address is eligible, an email with a link is on its way.');
-        return $this->redirect($request->path . ($teacherFlow ? '?flow=teacher' : ''));
+        $query = http_build_query(['flow' => $flow?->value, 'ref' => $reference]);
+        return $this->redirect($request->path . ($query !== '' ? '?' . $query : ''));
     }
 
     private function confirmEmail(Request $request): Response
     {
         $token = $request->form('token');
-        $invalidLink = 'This verification link is invalid or expired. Request a new link.';
+        $reference = AuthInput::teacherRequestReference($request->form('ref'));
         if (!AuthInput::validToken($token)) {
-            return $this->form('/verify-email', message: $invalidLink, status: 422);
+            return $this->form('/verify-email', values: ['ref' => $reference],
+                message: 'This verification link is invalid or expired. Request a new link.', status: 422);
         }
-
-        $password = $request->form('password');
         $role = Role::tryFrom($request->form('role'));
-        if ($role === Role::Teacher) {
-            return $this->redirect('/verify-teacher?token=' . $token);
+        if ($role?->hasProfileRegistration()) {
+            $query = http_build_query(['token' => $token, 'ref' => $role === Role::Teacher ? null : $reference]);
+            return $this->redirect($role->verificationPath() . '?' . $query);
         }
-        $school = trim($request->form('school_name'));
-        $errors = AuthInput::passwordErrors($password, $request->form('password_confirmation'));
-        if (!in_array($role, Role::publicRoles(), true)) {
-            $errors['role'] = 'Choose a teacher, school or parent account.';
-        }
-        if ($role === Role::School && !AuthInput::validSchoolName($school)) {
-            $errors['school_name'] = 'Enter a school name using up to 160 characters.';
-        }
-        if ($errors !== []) {
-            return $this->form('/verify-email', [
-                'role' => $role?->value ?? '',
-                'school_name' => substr($school, 0, 640),
-            ], $errors, token: $token, status: 422);
-        }
-        if (!$this->accounts->confirmEmail($token, $password, $role, $school)) {
-            return $this->form('/verify-email', message: $invalidLink, status: 422);
-        }
-
-        $this->session->notice('Your email is verified. You can now sign in.');
-        return $this->redirect('/login');
+        return $this->form('/verify-email', values: ['ref' => $reference],
+            errors: ['role' => 'Choose a teacher, school or parent account.'], token: $token, status: 422);
     }
 
     private function resetPassword(Request $request): Response

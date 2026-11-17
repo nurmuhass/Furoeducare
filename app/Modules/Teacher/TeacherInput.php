@@ -6,14 +6,22 @@ namespace Furoeducare\Modules\Teacher;
 
 use Furoeducare\Core\Request;
 use Furoeducare\Modules\Auth\AuthInput;
+use Furoeducare\Modules\Auth\LegalNotice;
 
 final class TeacherInput
 {
-    public const TERMS = 'terms-draft-2026-11-16';
-    public const PRIVACY = 'privacy-draft-2026-11-16';
+    public const TERMS = LegalNotice::TERMS;
+    public const PRIVACY = LegalNotice::PRIVACY;
     public const EMPLOYMENT = ['full_time' => 'Full-time', 'part_time' => 'Part-time', 'contract' => 'Contract', 'relief' => 'Relief teaching'];
     public const TUTORING = ['online' => 'Online', 'in_person' => 'In person'];
     public const AVAILABILITY = ['now' => 'Available now', 'from_date' => 'Available from a date', 'unavailable' => 'Currently unavailable'];
+    public const OPPORTUNITIES = [
+        'full_time' => 'Available for full-time teaching',
+        'part_time' => 'Available for part-time teaching',
+        'private_tutoring' => 'Available for private tutoring',
+        'online_tutoring' => 'Available for online tutoring',
+        'unavailable' => 'Temporarily unavailable',
+    ];
     public const ROW_LIMIT = 25;
 
     public static function registration(Request $request, bool $email, bool $password): array
@@ -59,17 +67,18 @@ final class TeacherInput
         }
 
         $errors = [];
+        $linesOnly = $request->form('list_style') === 'lines';
         $values = match ($section) {
             Section::Biography => ['bio' => self::bounded($request->form('bio'), 2500, 'bio', $errors, true)],
             Section::Subjects => [
-                'subjects' => self::list($request->form('subjects'), 'subjects', $errors),
-                'levels' => self::list($request->form('levels'), 'levels', $errors),
+                'subjects' => self::list($request->form('subjects'), 'subjects', $errors, $linesOnly),
+                'levels' => self::list($request->form('levels'), 'levels', $errors, $linesOnly),
             ],
             Section::Skills => [
-                'skills' => self::list($request->form('skills'), 'skills', $errors),
-                'certifications' => self::list($request->form('certifications'), 'certifications', $errors),
+                'skills' => self::list($request->form('skills'), 'skills', $errors, $linesOnly),
+                'certifications' => self::list($request->form('certifications'), 'certifications', $errors, $linesOnly),
             ],
-            Section::Locations => ['locations' => self::list($request->form('locations'), 'locations', $errors)],
+            Section::Locations => ['locations' => self::list($request->form('locations'), 'locations', $errors, $linesOnly)],
             Section::Preferences => [
                 'employment' => self::choices($request->formArray('employment'), self::EMPLOYMENT, 'employment', $errors),
                 'tutoring' => self::choices($request->formArray('tutoring'), self::TUTORING, 'tutoring', $errors),
@@ -92,30 +101,44 @@ final class TeacherInput
             $errors['last_name'] ??= 'Enter your last name.';
         }
         $phoneInput = trim($request->form('phone'));
-        $phone = preg_replace('/[()\s-]/', '', $phoneInput);
-        if (preg_match('/\A0[0-9]{10}\z/', $phone) === 1) {
-            $phone = '+234' . substr($phone, 1);
-        } elseif (preg_match('/\A234[0-9]{10}\z/', $phone) === 1) {
-            $phone = '+' . $phone;
-        }
-        if (preg_match('/\A\+[1-9][0-9]{6,14}\z/', $phone) !== 1) {
+        $phone = AuthInput::phone($phoneInput);
+        if ($phone === null) {
             $errors['phone'] = 'Enter an 11-digit Nigerian number or a number with its international calling code.';
         }
         return [['first_name' => $first, 'last_name' => $last, 'phone' => isset($errors['phone']) ? substr($phoneInput, 0, 48) : $phone], $errors];
     }
 
-    private static function rows(Section $section, Request $request): array
+    public static function cvReview(Request $request): array
+    {
+        [$qualifications, $errors] = self::rows(Section::Qualifications, $request, 'qualifications');
+        [$experience, $workErrors] = self::rows(Section::Experience, $request, 'experience');
+        $errors += $workErrors;
+        $values = [
+            'summary' => self::bounded($request->form('summary'), 2500, 'summary', $errors, true),
+            'qualifications' => $qualifications['rows'],
+            'experience' => $experience['rows'],
+        ];
+        foreach (['skills', 'subjects', 'certifications'] as $field) {
+            $values[$field] = self::list($request->form($field), $field, $errors, linesOnly: true);
+        }
+        if ($request->form('confirmed') !== '1') {
+            $errors['confirmed'] = 'Confirm you reviewed the suggestions before saving.';
+        }
+        return [$values, $errors];
+    }
+
+    private static function rows(Section $section, Request $request, string $prefix = 'rows'): array
     {
         $education = $section === Section::Qualifications;
-        $submitted = $request->formArray('rows');
+        $submitted = $request->formArray($prefix);
         $errors = [];
         if (count($submitted) > self::ROW_LIMIT) {
-            $errors['rows'] = 'Save up to 25 entries in this section.';
+            $errors[$prefix] = 'Save up to 25 entries in this section.';
         }
         $rows = [];
         foreach (array_slice($submitted, 0, self::ROW_LIMIT) as $entry) {
             if (!is_array($entry)) {
-                $errors['rows'] = 'Review the entries in this section.';
+                $errors[$prefix] = 'Review the entries in this section.';
                 continue;
             }
             if (($entry['remove'] ?? null) === '1') {
@@ -128,20 +151,20 @@ final class TeacherInput
                 ? ['qualification' => 160, 'institution' => 160, 'field_of_study' => 160]
                 : ['position_title' => 160, 'organisation' => 160, 'description' => 1000];
             foreach ($fields as $key => $max) {
-                $row[$key] = self::bounded($string($key), $max, "rows.$index.$key", $errors, $key === 'description');
+                $row[$key] = self::bounded($string($key), $max, "$prefix.$index.$key", $errors, $key === 'description');
             }
             foreach ($education ? ['completed_year'] : ['started_year', 'ended_year'] as $key) {
-                $row[$key] = self::year($string($key), "rows.$index.$key", $errors);
+                $row[$key] = self::year($string($key), "$prefix.$index.$key", $errors);
             }
             if (!$education && $row['started_year'] !== null && $row['ended_year'] !== null
                 && is_int($row['started_year']) && is_int($row['ended_year']) && $row['ended_year'] < $row['started_year']) {
-                $errors["rows.$index.ended_year"] = 'The end year cannot be before the start year.';
+                $errors["$prefix.$index.ended_year"] = 'The end year cannot be before the start year.';
             }
             if (array_filter($row, static fn ($value): bool => $value !== '' && $value !== null) !== []) {
                 $rows[] = $row;
             }
         }
-        $none = !$education && $request->form('no_experience') === '1';
+        $none = $prefix === 'rows' && !$education && $request->form('no_experience') === '1';
         if ($none && $rows !== []) {
             $errors['no_experience'] = 'Clear this option or remove the work entries.';
         }
@@ -150,16 +173,42 @@ final class TeacherInput
 
     private static function availability(Request $request, array &$errors): array
     {
+        if ($request->form('availability_preferences') === '1') {
+            $options = self::choices($request->formArray('opportunities'), self::OPPORTUNITIES, 'opportunities', $errors);
+            $paused = in_array('unavailable', $options, true);
+            if (($paused && count($options) > 1) || $request->form('opportunities') !== '') {
+                $errors['opportunities'] = $paused
+                    ? 'Choose temporarily unavailable on its own.'
+                    : 'Select only options shown in the form.';
+            }
+
+            $date = trim($request->form('date'));
+            if ($paused && $date !== '') {
+                $errors['date'] = 'Clear the start date if you are temporarily unavailable.';
+            }
+            self::validateAvailabilityDate($date, $errors);
+            return [
+                'status' => $paused ? 'unavailable' : ($date !== '' ? 'from_date' : ($options === [] ? '' : 'now')),
+                'date' => $date,
+                'opportunities' => $options,
+            ];
+        }
+
         $status = $request->form('status');
-        $from = $status === 'from_date' ? $request->form('date') : '';
+        $date = $status === 'from_date' ? $request->form('date') : '';
         if ($status !== '' && !isset(self::AVAILABILITY[$status])) {
             $errors['status'] = 'Choose an availability option from the list.';
         }
-        if ($from !== '' && (preg_match('/\A(\d{4})-(\d{2})-(\d{2})\z/', $from, $parts) !== 1
+        self::validateAvailabilityDate($date, $errors);
+        return ['status' => $status, 'date' => $date];
+    }
+
+    private static function validateAvailabilityDate(string $date, array &$errors): void
+    {
+        if ($date !== '' && (preg_match('/\A(\d{4})-(\d{2})-(\d{2})\z/', $date, $parts) !== 1
             || (int) $parts[1] < 1900 || !checkdate((int) $parts[2], (int) $parts[3], (int) $parts[1]))) {
             $errors['date'] = 'Enter a valid date.';
         }
-        return ['status' => $status, 'date' => $from];
     }
 
     private static function choices(array $items, array $choices, string $field, array &$errors): array
@@ -175,10 +224,10 @@ final class TeacherInput
         return array_values($result);
     }
 
-    private static function list(string $input, string $field, array &$errors): array
+    private static function list(string $input, string $field, array &$errors, bool $linesOnly = false): array
     {
-        $input = self::bounded($input, 2500, $field, $errors, true);
-        $items = array_values(array_unique(array_filter(array_map('trim', preg_split('/[\r\n,]+/', $input)), 'strlen')));
+        $input = self::bounded($input, $linesOnly ? 2600 : 2500, $field, $errors, true);
+        $items = array_values(array_unique(array_filter(array_map('trim', preg_split($linesOnly ? '/[\r\n]+/' : '/[\r\n,]+/', $input)), 'strlen')));
         if (count($items) > 25) {
             $errors[$field] = 'Enter up to 25 items.';
         }
