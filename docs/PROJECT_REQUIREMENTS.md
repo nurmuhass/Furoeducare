@@ -53,6 +53,8 @@ Teachers and NYSC members with a complete profile and verified email can apply b
 
 Recruitment staff move applications through review, shortlisting, interview, offer and final placement or an unsuccessful outcome. The Successful status records final placement and requires current professional verification. Schools have no access to applications through this workflow. Any release of candidate information or original documents must go through the separate management authorisation process.
 
+Managed placements have their own stages for screening, shortlisting, discussion scheduling, candidate availability, requester selection, offer or arrangement, confirmation, rejection and closure. They cover school employment and private tutoring. The owner can record selection after availability is confirmed. An assigned administrator makes and records the final decision. Confirmation rechecks current professional verification and the eligibility of the participants and the source. Home tutoring also requires separately documented identity, professional references, supervision and emergency arrangements.
+
 ## Engineering requirements
 
 - Use modular, object-oriented Core PHP with MVC-style separation among controllers, models, services, policies, validators, views and database operations. Use Composer for dependency management. HTML5, CSS3, Bootstrap 5 and vanilla JavaScript provide the frontend.

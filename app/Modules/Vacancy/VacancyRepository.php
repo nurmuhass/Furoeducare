@@ -187,21 +187,6 @@ final class VacancyRepository
         }
     }
 
-    public function requireSchoolForPlacement(int $vacancy, int $teacher, int $administrator): void
-    {
-        $row = $this->lock($vacancy);
-        $school = (int) $row['school_id'];
-        $this->lockRecruitmentAccounts($school, $teacher, $administrator);
-        if (!$this->activeAccount($administrator, 'admin')) {
-            throw new DomainException('An active administrator account is required.', 403);
-        }
-        try {
-            $this->activeSchool($school, requireApproval: true);
-        } catch (DomainException $error) {
-            throw new DomainException('Final placement requires a currently approved school account.', 409, $error);
-        }
-    }
-
     public function isSaved(int $teacher, int $vacancy): bool
     {
         return $this->read('SELECT vacancy_id FROM saved_jobs WHERE teacher_id = ? AND vacancy_id = ?', [$teacher, $vacancy]) !== [];
@@ -237,13 +222,10 @@ final class VacancyRepository
             FOR SHARE', [$id, $role]) !== [];
     }
 
-    private function lockRecruitmentAccounts(int $school, int $teacher, ?int $administrator = null): void
+    private function lockRecruitmentAccounts(int $school, int $teacher): void
     {
         // Directory requests take these same account locks before accessing school and teacher profiles.
         $locks = [$school => 'UPDATE', $teacher => 'UPDATE'];
-        if ($administrator !== null) {
-            $locks[$administrator] ??= 'SHARE';
-        }
         ksort($locks, SORT_NUMERIC);
         foreach ($locks as $account => $mode) {
             $this->read("SELECT id FROM users WHERE id = ? FOR $mode", [$account]);

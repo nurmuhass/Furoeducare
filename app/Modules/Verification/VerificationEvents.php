@@ -28,13 +28,17 @@ final class VerificationEvents
             ->execute([$actor, $event, json_encode($context, JSON_THROW_ON_ERROR)]);
     }
 
-    public function forUser(int $user, int $limit = 30): array
+    public function forUser(int $user, int $limit = 30, ?string $eventPrefix = null): array
     {
         $query = ($this->database)()->prepare(
-            'SELECT title, message, created_at FROM verification_notifications WHERE user_id = ? ORDER BY id DESC LIMIT ?'
+            'SELECT title, message, created_at FROM verification_notifications WHERE user_id = ?'
+            . ($eventPrefix === null ? '' : ' AND event LIKE ?') . ' ORDER BY id DESC LIMIT ?'
         );
         $query->bindValue(1, $user, PDO::PARAM_INT);
-        $query->bindValue(2, $limit, PDO::PARAM_INT);
+        if ($eventPrefix !== null) {
+            $query->bindValue(2, $eventPrefix . '%');
+        }
+        $query->bindValue($eventPrefix === null ? 2 : 3, $limit, PDO::PARAM_INT);
         $query->execute();
         return $query->fetchAll();
     }

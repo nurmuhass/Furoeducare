@@ -12,6 +12,7 @@ use Furoeducare\Modules\Auth\AuthAccess;
 use Furoeducare\Modules\Auth\AuthSession;
 use Furoeducare\Modules\Auth\Role;
 use Furoeducare\Modules\Verification\ReviewInput;
+use Furoeducare\Modules\Verification\VerificationEvents;
 use InvalidArgumentException;
 
 final class SchoolController
@@ -27,6 +28,7 @@ final class SchoolController
         private readonly AuthSession $session,
         private readonly AuthAccess $access,
         private readonly SchoolRepository $schools,
+        private readonly VerificationEvents $events,
     ) {
     }
 
@@ -200,6 +202,7 @@ final class SchoolController
         return $this->page('dashboard', $tab === 'overview' ? 'School dashboard' : self::TABS[$tab], $extra + [
             'school' => $school, 'email' => $viewer['email'], 'tab' => $tab, 'tabs' => self::TABS,
             'reviews' => in_array($tab, ['overview', 'notifications'], true) ? $this->schools->reviews($viewer['id']) : [],
+            'placementNotices' => $tab === 'notifications' ? $this->events->forUser($viewer['id'], eventPrefix: 'placement.') : [],
         ], $status);
     }
 

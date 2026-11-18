@@ -5,6 +5,7 @@ $application = $data['application'];
 $status = ApplicationStatus::from($application['status']);
 $fields = $application['job']['fields'];
 $history = $data['history'];
+$transitions = array_filter($status->transitions(true), static fn (ApplicationStatus $next): bool => $next !== ApplicationStatus::Successful);
 ?>
 <section class="page-band">
     <div class="site-shell page-intro">
@@ -29,7 +30,12 @@ $history = $data['history'];
             <div class="detail-card mb-4">
                 <h2 class="h4">Application status</h2>
                 <p><span class="status-badge"><?= $escape($status->label()) ?></span></p>
-                <?php if ($status->transitions(true) !== []): ?>
+                <?php if ($application['placement_id'] !== null): ?>
+                    <p><a href="/dashboard/admin/placements?id=<?= (int) $application['placement_id'] ?>">Open managed placement</a></p>
+                <?php elseif (in_array($status, [ApplicationStatus::UnderReview, ApplicationStatus::Shortlisted, ApplicationStatus::InterviewInvited, ApplicationStatus::OfferPending], true)): ?>
+                    <p><a href="/dashboard/admin/placements?application_id=<?= (int) $application['id'] ?>">Start managed placement</a></p>
+                <?php endif; ?>
+                <?php if ($transitions !== []): ?>
                     <form method="post" action="/dashboard/admin/vacancies/application">
                         <input type="hidden" name="_csrf" value="<?= $escape($data['csrf']) ?>">
                         <input type="hidden" name="id" value="<?= (int) $application['id'] ?>">
@@ -37,13 +43,12 @@ $history = $data['history'];
                         <label class="form-label" for="application-note">Note to the applicant (optional)</label>
                         <textarea class="form-control mb-3" name="note" id="application-note" rows="3" maxlength="1000"></textarea>
                         <div class="button-row">
-                            <?php foreach ($status->transitions(true) as $next): ?>
+                            <?php foreach ($transitions as $next): ?>
                                 <button class="btn button button-outline" name="action" value="<?= $escape($next->value) ?>" type="submit"><?= $escape(match ($next) {
                                     ApplicationStatus::UnderReview => 'Start review',
                                     ApplicationStatus::Shortlisted => 'Shortlist',
                                     ApplicationStatus::InterviewInvited => 'Record interview invitation',
                                     ApplicationStatus::OfferPending => 'Mark offer pending',
-                                    ApplicationStatus::Successful => 'Confirm final placement',
                                     ApplicationStatus::Unsuccessful => 'Mark unsuccessful',
                                 }) ?></button>
                             <?php endforeach; ?>

@@ -140,8 +140,7 @@ final class AdminTutoringController
                     if ($note === null) {
                         throw new DomainException('Use up to 1,000 characters and remove invalid characters from the note.', 422);
                     }
-                    $this->tutoring->transition($actor, $id, $version, $stage,
-                        $stage === TutoringStatus::Confirmed ? $reference : null, $note);
+                    $this->tutoring->transition($actor, $id, $version, $stage, $note);
                     break;
                 default:
                     throw new DomainException('Choose an action for this tutoring request.', 422);

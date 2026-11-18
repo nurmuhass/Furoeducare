@@ -9,7 +9,7 @@ use DomainException;
 use Furoeducare\Core\Database;
 use Furoeducare\Modules\Disclosure\CandidateRepository;
 use Furoeducare\Modules\Directory\PublicDirectory;
-use Furoeducare\Modules\Verification\TeacherEligibility;
+use Furoeducare\Modules\Placement\PlacementRepository;
 use Furoeducare\Modules\Verification\VerificationEvents;
 use PDO;
 
@@ -20,7 +20,6 @@ final class TutoringRepository
     public function __construct(
         private readonly Closure $database,
         private readonly PublicDirectory $directory,
-        private readonly TeacherEligibility $eligibility,
     ) {
     }
 
@@ -61,10 +60,11 @@ final class TutoringRepository
     {
         $row = $this->read("SELECT r.*, c.teacher_reference AS confirmed_reference,
             p.first_name AS contact_first_name, p.last_name AS contact_last_name,
-            p.phone AS contact_phone, u.email AS contact_email
+            p.phone AS contact_phone, u.email AS contact_email, placement.id AS placement_id
             FROM parent_tutoring_requests r
             JOIN parent_profiles p ON p.user_id = r.parent_id
             JOIN users u ON u.id = r.parent_id
+            LEFT JOIN placements placement ON placement.active_tutoring_id = r.id
             LEFT JOIN tutoring_candidates c
                 ON c.request_id = r.id AND c.teacher_id = r.confirmed_teacher_id
             WHERE r.id = ? AND r.status <> 'draft'", [$id])[0] ?? null;
@@ -95,7 +95,8 @@ final class TutoringRepository
     public function notifications(int $owner): array
     {
         return $this->read("SELECT title, message, created_at FROM verification_notifications
-            WHERE user_id = ? AND (event LIKE 'tutoring.%' OR event LIKE 'disclosure.%') ORDER BY id DESC LIMIT 30", [$owner]);
+            WHERE user_id = ? AND (event LIKE 'tutoring.%' OR event LIKE 'disclosure.%' OR event LIKE 'placement.%')
+            ORDER BY id DESC LIMIT 30", [$owner]);
     }
 
     public function recommendations(int $owner, int $before): array
@@ -198,10 +199,11 @@ final class TutoringRepository
         });
     }
 
-    public function transition(int $actor, int $id, string $version, TutoringStatus $to, ?string $reference, string $note): void
+    public function transition(int $actor, int $id, string $version, TutoringStatus $to, string $note): void
     {
-        Database::transaction(($this->database)(), function (PDO $db) use ($actor, $id, $version, $to, $reference, $note): void {
+        Database::transaction(($this->database)(), function (PDO $db) use ($actor, $id, $version, $to, $note): void {
             $record = $this->lock($id);
+            $this->requireRole($actor, 'admin');
             self::expectVersion($record, $version);
             $from = TutoringStatus::from($record['status']);
             if (!in_array($to, $from->staffTransitions(), true)) {
@@ -210,36 +212,27 @@ final class TutoringRepository
             if ($to === TutoringStatus::Closed && $note === '') {
                 throw new DomainException('Enter a reason for closing the request.', 422);
             }
-            $teacher = null;
             if ($to === TutoringStatus::Confirmed) {
-                $candidate = $reference === null ? null : ($this->read(
-                    'SELECT teacher_id FROM tutoring_candidates WHERE request_id = ? AND teacher_reference = ?', [$id, $reference])[0] ?? null);
-                if ($candidate === null) {
-                    throw new DomainException('Select a shortlisted tutor before confirming the arrangement.', 409);
-                }
-                $target = $this->lockTutor($actor, 'admin', $reference, $record['details']['mode'] ?? '');
-                $teacher = (int) $target['teacher_id'];
-                if ((int) $candidate['teacher_id'] !== $teacher) {
-                    throw new DomainException('Add the current teacher listing before confirming this arrangement.', 409);
-                }
-                try {
-                    $this->eligibility->requireForPlacement($teacher);
-                } catch (DomainException $error) {
-                    throw new DomainException($error->getMessage(), 409, $error);
-                }
-            } else {
-                $this->requireRole($actor, 'admin');
-                if (in_array($to, [TutoringStatus::Shortlisted, TutoringStatus::ArrangementPending], true) && $this->compatibleCandidates($record) === []) {
-                    throw new DomainException('Add at least one suitable tutor before advancing the request.', 409);
-                }
+                throw new DomainException('Confirm this arrangement from the managed placement workspace.', 409);
             }
-            $db->prepare('UPDATE parent_tutoring_requests SET status = ?, confirmed_teacher_id = ? WHERE id = ?')
-                ->execute([$to->value, $teacher, $id]);
+            if (in_array($to, [TutoringStatus::Shortlisted, TutoringStatus::ArrangementPending], true) && $this->compatibleCandidates($record) === []) {
+                throw new DomainException('Add at least one suitable tutor before advancing the request.', 409);
+            }
+            $db->prepare('UPDATE parent_tutoring_requests SET status = ? WHERE id = ?')->execute([$to->value, $id]);
             if ($to === TutoringStatus::Closed) {
+                PlacementRepository::cancelForTutoring($db, $id, $actor);
                 CandidateRepository::closeTutoring($db, $id);
             }
             self::event($db, $record, $actor, $to, $note);
         });
+    }
+
+    /** Record the companion tutoring state in the active managed placement transaction. */
+    public static function recordPlacementConfirmation(PDO $db, array $record, int $actor, int $teacher): void
+    {
+        $db->prepare("UPDATE parent_tutoring_requests SET status = 'confirmed', confirmed_teacher_id = ? WHERE id = ?")
+            ->execute([$teacher, $record['id']]);
+        self::event($db, $record, $actor, TutoringStatus::Confirmed, 'Confirmed through managed placement.');
     }
 
     private function compatibleCandidates(array $record, ?string $omit = null): array

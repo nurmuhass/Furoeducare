@@ -1,5 +1,12 @@
 # Furoeducare Decisions
 
+## Managed recruitment and placements
+
+- Store one placement per employment application and one current tutoring placement per request. A rejected tutoring placement leaves the request available for another attempt. Confirmed or closed records retain their source reservation. Count successful applications against the approved vacancy's positions.
+- Let the owner record selection after staff confirms availability. The assigned administrator can also record a selection made outside the platform and remains responsible for offers, final decisions and closure.
+- Require the four home tutoring checks at the current professional verification revision. Authorised staff verify identity and professional references through restricted channels and record a reference to the evidence along with the supervision and emergency checks. Use WAT for scheduling and UTC for timestamps.
+- Preserve historic Successful applications and Confirmed tutoring requests in their existing records. The upgrade creates no placement or safeguarding decisions for historical records.
+
 ## Candidate requests and controlled disclosure
 
 - Link new school cases to an owned vacancy and create parent cases from submitted tutoring requests. Import older school enquiries and require the school to link its vacancy before staff process the case.
@@ -19,7 +26,7 @@
 - The application deadline includes the entire selected calendar date in the Africa/Lagos time zone. Expired vacancies leave the public board automatically. A school or administrator can close a published vacancy and retain its history.
 - Saving changed content on a published or approved vacancy returns it to draft. Submitting, reviewing, approving and publishing the new version are separate actions. A save with identical published content preserves the original revision.
 - Staff progress applications in order through Submitted, Under review, Shortlisted, Interview invited, Offer pending and Successful. Staff can mark an application Unsuccessful once review begins. The applicant can withdraw any active application, including an offer pending. Successful, Unsuccessful and Withdrawn are terminal. The unique vacancy and teacher pair applies after withdrawal and after republication.
-- Staff record final placement through Successful. The write checks the teacher’s current professional verification and the school’s current approval in the same transaction. Applicants can reach earlier stages while professional verification is pending.
+- Staff confirm employment in the managed placement workspace, which records Successful on the application in the same transaction as the final decision. Applicants can reach earlier stages while professional verification is pending.
 - A random candidate reference identifies the candidate within one application. Store the vacancy and approved professional fields as they were at submission. Leave the profile snapshot missing on older records where it was never collected.
 - Saved jobs belong to the teacher account. If a vacancy becomes unavailable, the saved list keeps its previously published title and removes the public link. The teacher can remove the bookmark.
 - The applicant and authorised management staff can read application status history. Schools manage their posting and receive its moderation notes. Management retains control of candidate information and shortlisting.

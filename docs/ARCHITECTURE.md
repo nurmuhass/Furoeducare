@@ -127,6 +127,12 @@ The policy checks an approved notice version and the recipient's acknowledgement
 
 The [disclosure policy](DISCLOSURE_POLICY.md) documents activation, independent evidence review, privacy controls and the manual handling of data-subject requests.
 
+## Managed recruitment and placements
+
+The Placement module follows a teacher and an eligible requester through school employment or private tutoring. Application, tutoring request, candidate request and placement statuses belong to their respective records. Placement starts from a school application under review or a shortlisted tutor on a request awaiting arrangements. Staff assign responsibility, record decisions and schedule discussions in WAT. Teachers see their own placement updates. The requesting account sees its own released placements from the placement shortlist stage, with the candidate reference and details intended for the participants.
+
+The source row and placement are locked for changes. The final decision rechecks current teacher verification, including the accepted CV and professional checks, and validates the school or parent and source. Employment also checks vacancy publication and capacity. Home tutoring pins the administrator's checklist to the teacher's current professional verification revision, records an evidence reference and keeps the underlying identity and reference evidence out of participant views. The write updates the companion source status, placement history, audit log and relevant notifications in one transaction. Selection records a separate decision. Final confirmation is made through the managed placement workspace.
+
 The initial foundation's setup and current capabilities are documented in the [README](../README.md). See [decisions](DECISIONS.md), [implementation progress](IMPLEMENTATION_PROGRESS.md) and the [test plan](TEST_PLAN.md) for this phase.
 
 The [database foundation](DATABASE.md) implements account, role, token, audit and settings storage. The migration ledger and CLI are separate from HTTP bootstrap. PHP sessions use file-backed storage for the initial deployment.
@@ -159,7 +165,7 @@ Parent signup uses shared profile registration and creates a private adult profi
 
 The Parent module owns tutoring requests, staff matching, shortlists, status history and in-app updates. General requests and selections carried through directory sign-in land in the same parent editor. Submitting a tutoring request creates a central candidate case. Staff list and detail queries exclude drafts. Parent request and recommendation queries scope records to the signed-in owner.
 
-Staff search the public directory using the required live tutoring mode. Matching changes and status decisions lock the request and check its current version. Tutors shown to parents come from public, currently available listings attached to their shortlist. Confirmation checks the chosen shortlist record, tutor availability and current professional verification inside the write transaction. The same transaction records history, audit activity and a notification for the parent. Notifications link the parent back to My Requests for private details.
+Staff search the public directory using the required live tutoring mode. Matching changes and status decisions lock the request and check its current version. Tutors shown to parents come from public, currently available listings attached to their shortlist. The placement workspace confirms arrangements after rechecking the shortlisted tutor, lesson mode and verification. It updates the tutoring request, its history and notifications in the placement transaction.
 
 The staff finder keeps the default request subject on the server and carries only the cursor in default pagination links. Submitted request detail includes the adult account's existing contact data for authorised staff coordination.
 

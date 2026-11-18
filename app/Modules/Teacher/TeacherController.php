@@ -317,9 +317,13 @@ final class TeacherController
             DashboardPage::Availability => $this->dashboard($profile, $viewer, Section::Availability),
             DashboardPage::Overview => $this->workspace($tab, 'overview', $profile, $viewer, [
                 'applicationCounts' => $this->applications->counts($viewer['id']),
+                'placementEvents' => $this->verificationEvents->forUser($viewer['id'], 3, 'placement.'),
             ]),
             DashboardPage::Jobs => $this->workspace($tab, 'jobs', $profile, $viewer),
             DashboardPage::Applications => $this->myApplications($request, $profile, $viewer),
+            DashboardPage::Placements => $this->workspace($tab, 'placements', $profile, $viewer, [
+                'placementEvents' => $this->verificationEvents->forUser($viewer['id'], 5, 'placement.'),
+            ]),
             DashboardPage::SavedJobs => $this->savedJobs($request, $profile, $viewer),
             DashboardPage::Notifications => $this->workspace($tab, 'notifications', $profile, $viewer, [
                 'notifications' => $this->verificationEvents->forUser($viewer['id']),

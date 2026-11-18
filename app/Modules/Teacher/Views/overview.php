@@ -63,7 +63,7 @@ $hasCv = in_array('cv', array_column($profile['sections']['documents']['files'],
 <div class="teacher-overview-updates">
     <section class="teacher-card" aria-labelledby="placement-title">
         <h2 id="placement-title">Placement updates</h2>
-        <p class="teacher-muted">Placement updates will appear here when placement services open.</p>
+        <?php require __DIR__ . '/placement-updates.php'; ?>
     </section>
     <section class="teacher-card" aria-labelledby="recent-notifications-title">
         <h2 id="recent-notifications-title">Recent notifications</h2>

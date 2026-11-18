@@ -7,6 +7,7 @@ namespace Furoeducare\Modules\Vacancy;
 use Closure;
 use DomainException;
 use Furoeducare\Core\Database;
+use Furoeducare\Modules\Placement\PlacementRepository;
 use Furoeducare\Modules\Verification\TeacherEligibility;
 use Furoeducare\Modules\Verification\VerificationEvents;
 use PDO;
@@ -64,7 +65,8 @@ final class ApplicationRepository
     public function find(int $id, ?int $teacher): ?array
     {
         $row = $this->read('SELECT a.id, a.vacancy_id, a.teacher_id, a.vacancy_revision, a.job_title, a.job_snapshot, a.status, a.created_at,
-            a.candidate_reference, a.application_statement, a.profile_snapshot FROM vacancy_applications a
+            a.candidate_reference, a.application_statement, a.profile_snapshot, p.id AS placement_id FROM vacancy_applications a
+            LEFT JOIN placements p ON p.application_id = a.id
             WHERE a.id = ?' . ($teacher === null ? '' : ' AND a.teacher_id = ?'), $teacher === null ? [$id] : [$id, $teacher])[0] ?? null;
         if ($row !== null) {
             $row['job'] = json_decode($row['job_snapshot'], true, flags: JSON_THROW_ON_ERROR);
@@ -91,12 +93,12 @@ final class ApplicationRepository
     public function transition(int $id, int $actor, bool $staff, string $expected, ApplicationStatus $to, string $note): void
     {
         Database::transaction(($this->database)(), function (PDO $db) use ($id, $actor, $staff, $expected, $to, $note): void {
-            $row = $this->read('SELECT status, teacher_id, vacancy_id FROM vacancy_applications WHERE id = ?' . ($staff ? '' : ' AND teacher_id = ?')
+            $row = $this->read('SELECT status FROM vacancy_applications WHERE id = ?' . ($staff ? '' : ' AND teacher_id = ?')
                 . ' FOR UPDATE', $staff ? [$id] : [$id, $actor])[0] ?? null;
             if ($row === null) {
                 throw new DomainException('This application could not be found.', 404);
             }
-            if ($to !== ApplicationStatus::Successful && !$this->vacancies->activeAccount($actor, $staff ? 'admin' : 'teacher')) {
+            if (!$this->vacancies->activeAccount($actor, $staff ? 'admin' : 'teacher')) {
                 throw new DomainException('An active account is required.', 403);
             }
             $from = ApplicationStatus::from($row['status']);
@@ -104,16 +106,21 @@ final class ApplicationRepository
                 throw new DomainException('This application changed or the requested action is unavailable.', 409);
             }
             if ($to === ApplicationStatus::Successful) {
-                $this->vacancies->requireSchoolForPlacement((int) $row['vacancy_id'], (int) $row['teacher_id'], $actor);
-                try {
-                    $this->eligibility->requireForPlacement((int) $row['teacher_id']);
-                } catch (DomainException $error) {
-                    throw new DomainException($error->getMessage(), 409, $error);
-                }
+                throw new DomainException('Confirm final placement from the managed placement workspace.', 409);
             }
             $db->prepare('UPDATE vacancy_applications SET status = ? WHERE id = ?')->execute([$to->value, $id]);
             self::event($db, $id, $actor, $from, $to, $note);
+            if (in_array($to, [ApplicationStatus::Unsuccessful, ApplicationStatus::Withdrawn], true)) {
+                PlacementRepository::cancelForApplication($db, $id, $actor);
+            }
         });
+    }
+
+    /** Record the companion application stage in the active managed placement transaction. */
+    public static function recordPlacementStage(PDO $db, int $id, int $actor, ApplicationStatus $from, ApplicationStatus $to): void
+    {
+        $db->prepare('UPDATE vacancy_applications SET status = ? WHERE id = ?')->execute([$to->value, $id]);
+        self::event($db, $id, $actor, $from, $to, 'Updated through managed placement.');
     }
 
     private static function event(PDO $db, int $id, int $actor, ?ApplicationStatus $from, ApplicationStatus $to, string $note): void

@@ -54,7 +54,6 @@ enum DashboardPage: string
     public function pendingMessage(): string
     {
         return match ($this) {
-            self::Placements => 'Furoeducare will share placement opportunities and updates here when placement services are available.',
             self::Library => 'Books and learning materials will appear here when the digital library opens.',
             self::Messages => 'Conversations with the Furoeducare team will appear here once messaging is available.',
         };

@@ -1,5 +1,15 @@
 # Furoeducare Test Plan
 
+## Managed recruitment and placement
+
+Run `php tests/placement-workflow.php` to check allowed stage decisions and `php tests/placements.php` for the HTTP tests. Set `APP_ENV=development`, `DB_HOST=127.0.0.1`, `DB_DATABASE=furoeducare_test_placements_<suffix>` and the matching `DB_PORT`, `DB_USERNAME` and `DB_PASSWORD` for a disposable empty MySQL 8.4 schema.
+
+1. Stop the local app, run `php bin/database.php migrate`, and restart it. Sign in as staff and move an application on a published vacancy to **Under review**. Open **Start managed placement**. Record screening and release the shortlist. Schedule a future interview in WAT and confirm teacher availability.
+2. As the owning school, open **View placements** and select the candidate. Check **Selected** and verify the application still has no Successful decision. As staff, record the offer and start date. Try confirming with professional verification pending or the current CV unaccepted. Complete the verification and CV review, confirm, and check **Successful** on the application. Close the placement and confirm that the application retains **Successful**.
+3. As a verified parent, submit a home tutoring request. In the staff tutoring queue, shortlist an available tutor and move the request to **Arrangement pending**. Open **Start managed placement** for that tutor and choose **Home tutoring**. Record the discussion, availability, selection and arrangement. Attempt confirmation before safeguarding.
+4. Verify the tutor's identity against approved records, confirm suitable professional reference evidence, agree supervision and boundaries with the responsible adult, and confirm emergency escalation arrangements through the staff process. Record the checklist and an opaque restricted evidence reference. Leave names, ID numbers, addresses and contact details in the authorised evidence system. If the teacher's professional verification revision changes, renew verification and record the checklist again before confirming. The parent should see the confirmed arrangement and the teacher should receive a placement update.
+5. Try to start a second placement for the same application or a tutoring request with a current placement. Expect a conflict. Reject a separate pending placement and check that it has no confirmation timestamp. Check that an unrelated requester cannot view or select it and that the teacher cannot confirm it. Confirm that notes and safeguarding evidence are visible only to staff.
+
 ## Private tutoring requests
 
 Run `php tests/tutoring-workflow.php` for the permitted stage transitions. Run `php tests/tutoring.php` against an empty, disposable loopback MySQL database named `furoeducare_test_tutoring_<suffix>` for parent and staff HTTP checks. The database suite covers the upgrade of older general and specific-teacher requests.
@@ -8,7 +18,7 @@ Run `php tests/tutoring-workflow.php` for the permitted stage transitions. Run `
 2. Add a subject, education level, number of learners, objectives, format, preferred weekdays and time ranges, and sessions per week. For home or either format, add a state and city. Check that a street address in the city field or an end time before the start gets a validation message.
 3. Open a tutor from **Find Teachers** in a signed-out browser and choose **Request this teacher**. Sign in and check that the chosen public reference appears in the request form. Save and submit the request. Verify that another parent cannot open the draft or submitted request and that it does not appear in Teaching Jobs.
 4. As staff, open **Tutoring requests**. Start the review and move to matching. Use the finder to add an available tutor with a compatible lesson format, publish the shortlist to the request, and move to **Arrangement pending**. Confirm that the owner sees the shortlist and updates in their dashboard.
-5. Try confirming before professional verification. Complete the tutor's professional checks and current CV review, then confirm. Check the reference in **My Requests** and the record in **Lesson Arrangements**. In a separate request, close it with a reason and confirm it appears in the owner's history.
+5. From **Arrangement pending**, follow the [managed placement walkthrough](#managed-recruitment-and-placement) to confirm. In a separate request, close it with a reason and confirm it appears in the owner's history.
 6. As a school or teacher, try the staff queue URL and confirm access is denied. Check that a second parent cannot see the first parent's notes or notifications.
 
 ## Teacher job applications
@@ -17,8 +27,8 @@ Run `php tests/application-workflow.php` for the complete transition matrix. Run
 
 1. Run `php bin/database.php migrate` against the local development database. Publish a vacancy. As a teacher with a complete profile, verified email and pending professional verification, open its requirements at `/teaching-jobs` and select **Save job**. Open **Saved Jobs** and verify the link. In a different teacher account, confirm the saved job is absent.
 2. Apply from the posting with a short statement. Open **My Applications** and check the candidate reference, posting, statement and professional details. Edit a saved skill in the profile and confirm the submitted skill stays the same. Confirm another teacher can neither open the application detail nor withdraw it.
-3. As staff, open **Teaching applications** and advance the application through **Under review**, **Shortlisted**, **Interview invited** and **Offer pending**. Record an interview note and confirm the teacher can see it in their timeline. Try to confirm final placement before teacher verification and confirm the application remains at **Offer pending**.
-4. Complete the teacher's verification and current CV review. Confirm final placement while the school is approved. Check **Successful** in the teacher's history and confirm withdrawal is unavailable. On a different active application, withdraw as the teacher and confirm reapplying is blocked.
+3. As staff, open **Teaching applications** and move an application to **Under review**. Follow the [managed placement walkthrough](#managed-recruitment-and-placement) for the interview, offer and confirmation.
+4. Check **Successful** in the teacher's history after managed confirmation and confirm withdrawal is unavailable. On a different active application, withdraw as the teacher and confirm reapplying is blocked.
 5. Sign in as the school. Check that its vacancy page contains no candidate records, statements, contacts or documents. A staff application link and a protected CV link both deny school access.
 6. Close the vacancy and confirm it remains in Saved Jobs with its saved title and an unavailable label. Remove that bookmark.
 

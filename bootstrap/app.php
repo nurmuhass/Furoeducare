@@ -29,6 +29,9 @@ use Furoeducare\Modules\Parent\ParentRegistration;
 use Furoeducare\Modules\Parent\ParentRepository;
 use Furoeducare\Modules\Parent\AdminTutoringController;
 use Furoeducare\Modules\Parent\TutoringRepository;
+use Furoeducare\Modules\Placement\PlacementController;
+use Furoeducare\Modules\Placement\PlacementRepository;
+use Furoeducare\Modules\Placement\PlacementSources;
 use Furoeducare\Modules\School\SchoolController;
 use Furoeducare\Modules\School\SchoolRegistration;
 use Furoeducare\Modules\School\SchoolRepository;
@@ -75,8 +78,9 @@ return static function (Config $config): Router {
     $applications = new ApplicationRepository($database, $vacancies, $eligibility);
     $documents = new TeacherDocuments($profiles, $config->teacherDocumentDirectory, $root . '/public');
     $verification = new VerificationRepository($database, $profiles);
+    $events = new VerificationEvents($database);
     $teacher = new TeacherController($view, $session, $accounts, $access, $limits, $mailer, $profiles, $documents,
-        new CvJobs($database), $verification, new VerificationEvents($database), $applications, $vacancies);
+        new CvJobs($database), $verification, $events, $applications, $vacancies);
 
     $authRoutes = require $root . '/config/auth-routes.php';
     $authRoutes($router, $auth);
@@ -84,12 +88,12 @@ return static function (Config $config): Router {
     $teacherRoutes($router, $teacher);
     $schoolRoutes = require $root . '/config/school-routes.php';
     $schoolRoutes($router, new SchoolRegistration($view, $session, $access, $accounts, $mailer, $limits, $schools),
-        new SchoolController($view, $session, $access, $schools));
+        new SchoolController($view, $session, $access, $schools, $events));
     $verificationRoutes = require $root . '/config/verification-routes.php';
     $verificationRoutes($router, new VerificationController($view, $session, $access, $verification, $schools, $documents));
     $parents = new ParentRepository($database);
     $publicDirectory = new PublicDirectory($database);
-    $tutoring = new TutoringRepository($database, $publicDirectory, $eligibility);
+    $tutoring = new TutoringRepository($database, $publicDirectory);
     $parentRoutes = require $root . '/config/parent-routes.php';
     $parentRoutes($router, new ParentRegistration($view, $session, $access, $accounts, $mailer, $limits, $parents),
         new ParentController($view, $session, $access, $parents, $tutoring),
@@ -99,6 +103,9 @@ return static function (Config $config): Router {
         new DirectoryController($view, $session, $access, $publicDirectory, new DirectoryInteractions($database, $publicDirectory, $parents, $schools)),
         new AdminDirectoryController($view, $session, $access, new DirectoryRepository($database)));
     $candidateCases = new CandidateRepository($database, $publicDirectory, $schools, $parents);
+    $placements = new PlacementRepository($database, new PlacementSources($candidateCases, $publicDirectory), $candidateCases, $eligibility);
+    $placementRoutes = require $root . '/config/placement-routes.php';
+    $placementRoutes($router, new PlacementController($view, $session, $access, $placements));
     $candidateRoutes = require $root . '/config/candidate-routes.php';
     $candidateRoutes($router, new CandidateController($view, $session, $access, $candidateCases,
         new DisclosureRepository($database, $candidateCases, $disclosurePolicy, $profiles, $documents), $disclosurePolicy));

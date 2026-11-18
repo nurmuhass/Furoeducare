@@ -7,13 +7,16 @@ $id = (int) $record['id'];
 $action = $root . '?id=' . $id;
 $version = $record['updated_at'];
 $status = $data['status'];
-$stages = $status->staffTransitions();
+$stages = array_filter($status->staffTransitions(), static fn (TutoringStatus $next): bool => $next !== TutoringStatus::Confirmed);
 $candidates = $data['candidates'];
 $references = array_column($candidates, 'teacher_reference');
 $finder = $data['finder'];
 ?>
 <p class="lead text-break mb-2"><?= $escape($record['subject']) ?></p>
 <p><span class="status-badge"><?= $escape($status->label()) ?></span></p>
+<?php if ($record['placement_id'] !== null): ?>
+    <p><a href="/dashboard/admin/placements?id=<?= (int) $record['placement_id'] ?>">Open managed placement</a></p>
+<?php endif; ?>
 <?php if ($data['error'] !== ''): ?>
     <p class="form-summary" role="alert"><?= $escape($data['error']) ?></p>
 <?php endif; ?>
@@ -49,20 +52,6 @@ $finder = $data['finder'];
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <?php if ($status === TutoringStatus::ArrangementPending): ?>
-                        <div>
-                            <label class="form-label" for="tutoring-confirmed-teacher">Teacher for confirmation</label>
-                            <select class="form-select" name="ref" id="tutoring-confirmed-teacher">
-                                <option value="">Choose a teacher from the shortlist</option>
-                                <?php foreach ($candidates as $candidate): ?>
-                                    <?php $reference = $candidate['teacher_reference']; ?>
-                                    <option value="<?= $escape($reference) ?>" <?= ($data['attempt']['reference'] ?? null) === $reference ? 'selected' : '' ?>>
-                                        <?= $escape($candidate['title'] . ' · ' . $reference) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                    <?php endif; ?>
                     <div>
                         <label class="form-label" for="tutoring-note">Note to the parent (required to close)</label>
                         <textarea class="form-control" name="note" id="tutoring-note" rows="3" maxlength="1000"><?= $escape($data['attempt']['note'] ?? '') ?></textarea>
@@ -85,6 +74,9 @@ $finder = $data['finder'];
                         <li class="list-group-item text-break">
                             <strong><?= $escape($candidate['title']) ?></strong>
                             <p class="mb-1"><?= $escape($reference) ?></p>
+                            <?php if ($status === TutoringStatus::ArrangementPending && $record['placement_id'] === null): ?>
+                                <p><a href="/dashboard/admin/placements?tutoring_id=<?= $id ?>&amp;reference=<?= $escape($reference) ?>">Start managed placement</a></p>
+                            <?php endif; ?>
                             <?php if ($finder !== null): ?>
                                 <form method="post" action="<?= $escape($action) ?>">
                                     <input type="hidden" name="_csrf" value="<?= $escape($data['csrf']) ?>">

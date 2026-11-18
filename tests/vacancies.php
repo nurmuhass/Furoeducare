@@ -209,27 +209,23 @@ try {
         redirectIs($move('shortlisted', 'interview_invited', 'Interview invitation fixture'), $reviewFinalist);
         expect(str_contains($finalist->send($finalistDetail)[2], 'Interview invitation fixture'), 'The applicant can track the invitation and note.');
         redirectIs($move('interview_invited', 'offer_pending'), $reviewFinalist);
-        expect($move('offer_pending', 'successful')[0] === 409, 'Professional verification is required for final placement only.');
         $db->prepare("UPDATE teacher_profiles SET verification_status = 'verified', professional_verified_at = CURRENT_TIMESTAMP(6) WHERE user_id = ?")
             ->execute([$placementTeacher]);
-        expect($move('offer_pending', 'successful')[0] === 409, 'A verification timestamp alone cannot confirm placement.');
         $db->prepare("INSERT INTO teacher_document_reviews (id, document_id, teacher_id, reviewer_id, kind, decision, reason)
             SELECT id, id, teacher_id, ?, 'cv', 'accepted', 'fixture' FROM teacher_documents WHERE teacher_id = ? AND kind = 'cv'")
             ->execute([$staffId, $placementTeacher]);
         $db->prepare("INSERT INTO teacher_verification_reviews (teacher_id, reviewer_id, revision, decision, checks, reason)
             SELECT user_id, ?, verification_revision, 'verified', ?, 'fixture' FROM teacher_profiles WHERE user_id = ?")
             ->execute([$staffId, json_encode(array_fill_keys(array_keys(ReviewInput::TEACHER_CHECKS), true), JSON_THROW_ON_ERROR), $placementTeacher]);
-        $db->exec("UPDATE school_onboarding SET review_status = 'pending' WHERE user_id = (SELECT school_id FROM vacancies WHERE id = 2)");
-        expect($move('offer_pending', 'successful')[0] === 409, 'Final placement also requires an approved school.');
-        $db->exec("UPDATE school_onboarding SET review_status = 'approved' WHERE user_id = (SELECT school_id FROM vacancies WHERE id = 2)");
-        redirectIs($move('offer_pending', 'successful'), $reviewFinalist);
-        expect(str_contains($finalist->send($finalistDetail)[2], 'Successful') && $move('successful', 'unsuccessful')[0] === 409
-            && $finalist->submit($withdraw, ['id' => '2', 'from' => 'successful', 'action' => 'withdrawn'], $finalistDetail)[0] === 409,
-            'Successful placement is visible and cannot be changed or withdrawn through the application flow.');
+        expect($move('offer_pending', 'successful')[0] === 409,
+            'An administrator cannot confirm a fully verified applicant through the application endpoint.');
+        expect($db->query('SELECT status FROM vacancy_applications WHERE id = 2')->fetchColumn() === 'offer_pending'
+            && str_contains($finalist->send($finalistDetail)[2], 'Offer pending'),
+            'The applicant still sees the pending offer after a denied direct confirmation.');
         expect($db->query('SELECT to_status FROM vacancy_application_history WHERE application_id = 2 ORDER BY id')
-            ->fetchAll(PDO::FETCH_COLUMN) === ['submitted','under_review','shortlisted','interview_invited','offer_pending','successful'],
+            ->fetchAll(PDO::FETCH_COLUMN) === ['submitted', 'under_review', 'shortlisted', 'interview_invited', 'offer_pending'],
             'Only successful state changes are recorded in the application timeline.');
-        echo "PASS application statements, privacy, bookmarks, recruitment stages and verification at final placement.\n";
+        echo "PASS application statements, privacy, bookmarks, recruitment stages and managed placement enforcement.\n";
 
         $today = (new DateTimeImmutable('today', new DateTimeZone('Africa/Lagos')))->format('Y-m-d');
         $db->prepare('UPDATE vacancies SET application_deadline = ? WHERE id = 2')->execute([$today]);

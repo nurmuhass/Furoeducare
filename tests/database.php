@@ -56,7 +56,7 @@ try {
 
     $migrations = new MigrationRunner($db, $root . '/database/migrations');
     $seed = new SeedRunner($db, $root . '/database/seeders');
-    expect(count($migrations->status()) === 52 && array_values(array_unique($migrations->status())) === ['pending'], 'Initial migrations must be pending.');
+    expect(count($migrations->status()) === 54 && array_values(array_unique($migrations->status())) === ['pending'], 'Initial migrations must be pending.');
     expect($db->query('SHOW TABLES')->fetchAll() === [], 'Status must leave a fresh database empty.');
     rejectOperation(fn () => $migrations->withCurrentSchema($seed->run(...)), 'pending');
     $previous = sys_get_temp_dir() . '/furoeducare-migrations-0034-' . bin2hex(random_bytes(6));
@@ -106,7 +106,7 @@ try {
     $db->exec("INSERT INTO teacher_listing_requests (id, requester_id, listing_id, requester_role, notes, submitted_at) VALUES
         (501, 104, 401, 'parent', 'Legacy directory tutoring request', '2024-05-03 10:00:00.000000'),
         (502, 101, 401, 'school', 'Legacy school enquiry', '2024-05-03 12:00:00.000000')");
-    expect(count($migrations->migrate()) === 18, 'The application, tutoring and disclosure migrations must upgrade the previous release.');
+    expect(count($migrations->migrate()) === 20, 'Application, tutoring, disclosure and placement migrations must upgrade the previous release.');
     $tutoring = $db->query('SELECT subject, requirements, status, updated_at, selected_teacher_reference, legacy_directory_id
         FROM parent_tutoring_requests WHERE parent_id = 104 ORDER BY id')->fetchAll();
     expect(array_column($tutoring, 'status') === ['draft', 'submitted', 'submitted']
@@ -128,6 +128,8 @@ try {
     expect((int) $db->query('SELECT COUNT(*) FROM candidate_disclosure_grants')->fetchColumn() === 0,
         'Migrating requests cannot grant access to restricted information.');
     echo "PASS central candidate request backfill and default absence of disclosure grants.\n";
+    expect((int) $db->query('SELECT COUNT(*) FROM placements')->fetchColumn() === 0,
+        'Migrating old applications and requests cannot create final placements.');
     $upgraded = $db->query('SELECT status, candidate_reference, application_statement, profile_snapshot, updated_at FROM vacancy_applications ORDER BY id')->fetchAll();
     expect(array_column($upgraded, 'status') === ['unsuccessful', 'submitted']
         && count(array_unique(array_column($upgraded, 'candidate_reference'))) === 2
@@ -140,14 +142,14 @@ try {
         'Historical status events are preserved.');
     echo "PASS previous-release application upgrade, unique references and legacy history.\n";
     expect($migrations->migrate() === [], 'A repeated migration must do nothing.');
-    expect(array_values(array_unique($migrations->status())) === ['applied'], 'All 52 migrations must be recorded.');
+    expect(array_values(array_unique($migrations->status())) === ['applied'], 'All 54 migrations must be recorded.');
     $tables = $db->query(
         'SELECT TABLE_NAME, ENGINE, TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME'
     )->fetchAll();
     expect(array_column($tables, 'TABLE_NAME') === [
         'audit_logs', 'auth_rate_limits', 'candidate_disclosure_downloads', 'candidate_disclosure_grants', 'candidate_disclosure_requests',
         'candidate_privacy_requests', 'candidate_requests', 'candidate_shortlists', 'email_verification_tokens', 'parent_profiles',
-        'parent_tutoring_requests', 'password_reset_tokens', 'roles', 'saved_jobs', 'saved_teachers',
+        'parent_tutoring_requests', 'password_reset_tokens', 'placement_history', 'placements', 'roles', 'saved_jobs', 'saved_teachers',
         'schema_migrations', 'school_onboarding', 'school_recruitment_drafts', 'school_reviews', 'system_settings', 'teacher_cv_extractions',
         'teacher_disclosure_preferences', 'teacher_document_reviews', 'teacher_documents', 'teacher_experiences', 'teacher_listing_requests',
         'teacher_listing_tags', 'teacher_listings', 'teacher_profiles',
@@ -219,6 +221,7 @@ try {
     $reversibleMigrations = [
         '0047_create_candidate_shortlists', '0048_create_candidate_disclosure_requests', '0049_create_candidate_disclosure_grants',
         '0050_create_candidate_disclosure_downloads', '0051_create_teacher_disclosure_preferences', '0052_create_candidate_privacy_requests',
+        '0053_create_placements', '0054_create_placement_history',
     ];
     foreach (array_reverse($reversibleMigrations) as $version) {
         expect($migrations->rollback() === $version, 'Dependent migrations roll back in reverse order.');
@@ -259,29 +262,29 @@ try {
         foreach (glob($root . '/database/migrations/*.php') as $file) {
             copy($file, $scratch . '/' . basename($file));
         }
-        $fixture = $scratch . '/0053_fixture.php';
+        $fixture = $scratch . '/0055_fixture.php';
         $reversible = "<?php return ['up' => 'CREATE TABLE rollback_fixture (id INT PRIMARY KEY) ENGINE=InnoDB', 'down' => 'DROP TABLE rollback_fixture'];\n";
         file_put_contents($fixture, $reversible);
         $broken = new MigrationRunner($db, $scratch);
-        expect($broken->migrate() === ['0053_fixture'], 'A reversible migration must apply.');
-        expect($broken->rollback() === '0053_fixture', 'Rollback must reverse the latest reversible migration.');
-        expect($broken->migrate() === ['0053_fixture'], 'A clean rollback must support reapplication.');
-        expect($broken->rollback() === '0053_fixture', 'The reapplied migration must remain reversible.');
+        expect($broken->migrate() === ['0055_fixture'], 'A reversible migration must apply.');
+        expect($broken->rollback() === '0055_fixture', 'Rollback must reverse the latest reversible migration.');
+        expect($broken->migrate() === ['0055_fixture'], 'A clean rollback must support reapplication.');
+        expect($broken->rollback() === '0055_fixture', 'The reapplied migration must remain reversible.');
         echo "PASS rollback, irreversible migration protection, and reapplication.\n";
 
         file_put_contents($fixture, "<?php return ['up' => 'CREATE TABLE', 'down' => null];\n");
-        rejectOperation($broken->migrate(...), '0053_fixture');
-        expect($broken->status()['0053_fixture'] === 'applying', 'Failed DDL must leave a durable applying marker.');
+        rejectOperation($broken->migrate(...), '0055_fixture');
+        expect($broken->status()['0055_fixture'] === 'applying', 'Failed DDL must leave a durable applying marker.');
         rejectOperation($broken->migrate(...), 'applying');
         rejectOperation($broken->rollback(...), 'applying');
-        $db->exec("DELETE FROM schema_migrations WHERE version = '0053_fixture'");
+        $db->exec("DELETE FROM schema_migrations WHERE version = '0055_fixture'");
         file_put_contents($fixture, "<?php return ['up' => 'CREATE TABLE rollback_fixture (id INT PRIMARY KEY) ENGINE=InnoDB', 'down' => 'DROP TABLE'];\n");
-        expect($broken->migrate() === ['0053_fixture'], 'The rollback fixture must apply.');
-        rejectOperation($broken->rollback(...), '0053_fixture');
-        expect($broken->status()['0053_fixture'] === 'rolling_back', 'Failed rollback must leave a durable marker.');
+        expect($broken->migrate() === ['0055_fixture'], 'The rollback fixture must apply.');
+        rejectOperation($broken->rollback(...), '0055_fixture');
+        expect($broken->status()['0055_fixture'] === 'rolling_back', 'Failed rollback must leave a durable marker.');
         rejectOperation($broken->migrate(...), 'rolling_back');
         $db->exec('DROP TABLE rollback_fixture');
-        $db->exec("DELETE FROM schema_migrations WHERE version = '0053_fixture'");
+        $db->exec("DELETE FROM schema_migrations WHERE version = '0055_fixture'");
         unlink($fixture);
         $first = glob($scratch . '/0001_*.php')[0];
         file_put_contents($first, "\n// changed migration\n", FILE_APPEND);

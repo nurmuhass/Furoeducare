@@ -23,6 +23,11 @@ erDiagram
     CANDIDATE_DISCLOSURE_GRANTS ||--o{ CANDIDATE_DISCLOSURE_DOWNLOADS : records
     USERS ||--o{ CANDIDATE_PRIVACY_REQUESTS : submits
     TEACHER_PROFILES ||--o| TEACHER_DISCLOSURE_PREFERENCES : controls
+    VACANCY_APPLICATIONS |o--o| PLACEMENTS : originates
+    PARENT_TUTORING_REQUESTS |o--o{ PLACEMENTS : originates
+    TEACHER_PROFILES ||--o{ PLACEMENTS : participates
+    USERS ||--o{ PLACEMENTS : manages
+    PLACEMENTS ||--o{ PLACEMENT_HISTORY : records
     PARENT_TUTORING_REQUESTS ||--o{ TUTORING_CANDIDATES : considers
     PARENT_TUTORING_REQUESTS ||--o{ TUTORING_REQUEST_HISTORY : records
     TEACHER_PROFILES ||--o{ TUTORING_CANDIDATES : shortlisted_for
@@ -371,13 +376,14 @@ Install a current MySQL 8.4 LTS patch. Keep it on a different port if XAMPP's Ma
    php bin/database.php status
    ```
 
-   The first status shows all migrations pending on an empty schema. The final status shows them applied through `0052_create_candidate_privacy_requests`. In production, use a dedicated migration identity with schema privileges and a runtime identity with only the data privileges it needs.
+   The first status shows all migrations pending on an empty schema. The final status shows them applied through `0054_create_placement_history`. In production, use a dedicated migration identity with schema privileges and a runtime identity with only the data privileges it needs.
 
 ## Migrations and transactions
 
 - Stop application writers before upgrading through migrations 0035–0038. The old application code does not assign candidate references and predates the expanded status values. Run all four migrations before starting the new version.
 - Stop parent request and directory enquiry writers before applying 0039–0043 so the tutoring import captures every existing record. Migration 0040 preserves the original timestamps. Migration 0041 copies parent directory enquiries into tutoring requests and leaves school enquiries in their existing workflow. The tutoring data backfill and import are irreversible.
 - Stop application writers before applying 0044–0052. Migrations 0045 and 0046 import school enquiries and submitted tutoring requests into candidate cases. They create no grants. Revocation and download records refer to the granted document ID even when its private file is later removed. The two imports are irreversible.
+- Migrations 0053–0054 create the managed placement and decision history tables. A placement has exactly one source, with at most one row per application and one non-rejected row per tutoring request. Earlier application and tutoring outcomes remain in the source records. Back up the database before rolling back these tables. Rolling back removes the managed placement records and their decision history.
 
 - Add the next four-digit version under `database/migrations/`. Each PHP file returns one `up` DDL statement and a `down` statement when reversal is practical. Use `null` for an irreversible migration. Keep applied files immutable. The runner checks the file hashes and refuses modified, missing or out-of-order applied history.
 - `php bin/database.php rollback` reverses the latest recorded migration. Reversing 0038 drops saved jobs. Reversing 0037 relaxes the candidate reference and status constraints. The application reference backfill in 0036 is irreversible so existing references and decision history are preserved. Take a backup before rolling back a database with data. Apply and roll back on an autocommit connection. MySQL commits DDL independently of surrounding DML transactions. [MySQL atomic DDL and implicit commits](https://dev.mysql.com/doc/refman/8.4/en/atomic-ddl.html)

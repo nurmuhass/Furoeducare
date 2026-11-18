@@ -19,6 +19,7 @@ $role = $data['role'];
             <p class="form-next"><a href="/dashboard/admin/schools">Review school accounts</a></p>
             <p class="form-next"><a href="/dashboard/admin/verification/teachers?status=all">Manage public teacher listings</a></p>
             <p class="form-next"><a href="/dashboard/admin/candidate-requests">Candidate requests and disclosure review</a></p>
+            <p class="form-next"><a href="/dashboard/admin/placements">Managed placements</a></p>
             <p class="form-next"><a href="/dashboard/admin/privacy-requests">Data rights requests</a></p>
             <p class="form-next"><a href="/privacy/controls">My privacy controls</a></p>
             <p class="form-next"><a href="/dashboard/admin/tutoring-requests">Tutoring requests</a></p>

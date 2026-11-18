@@ -67,6 +67,7 @@ $pending = [
                         case 'requests':
                         case 'arrangements':
                             if ($tab === 'requests'): ?><p class="mb-3"><a href="/candidate-requests">Candidate shortlists and information requests</a></p><?php endif;
+                            if ($tab === 'arrangements'): ?><p class="mb-3"><a href="/placements">Manage tutoring placements</a></p><?php endif;
                             require __DIR__ . '/requests.php';
                             break;
                         case 'recommended': ?>
@@ -86,7 +87,7 @@ $pending = [
                             <?php endif; ?>
                             <?php break;
                         case 'notifications': ?>
-                            <h2>Tutoring and disclosure updates</h2>
+                            <h2>Tutoring, placement and disclosure updates</h2>
                             <?php if ($data['notifications'] === []): ?><p>No tutoring updates yet.</p><?php endif; ?>
                             <ul class="list-group list-group-flush">
                                 <?php foreach ($data['notifications'] as $notice): ?>
@@ -98,7 +99,7 @@ $pending = [
                                     </li>
                                 <?php endforeach; ?>
                             </ul>
-                            <p class="mt-3"><a href="/dashboard/parent?tab=requests">Open My Requests</a></p>
+                            <p class="mt-3"><a href="/dashboard/parent?tab=requests">Open My Requests</a> · <a href="/placements">View placements</a></p>
                             <?php break;
                         case 'settings': ?>
                             <p><a href="/privacy/controls">Privacy controls and data rights</a></p>

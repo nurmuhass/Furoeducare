@@ -33,7 +33,7 @@ final class TeacherEligibility
     }
 
     /** Call in the same transaction as the final placement write. */
-    public function requireForPlacement(int $teacher): void
+    public function requireForPlacement(int $teacher): int
     {
         $db = ($this->database)();
         if (!$db->inTransaction()) {
@@ -54,6 +54,7 @@ final class TeacherEligibility
         if (!is_array($checks) || !ReviewInput::passed($checks, ReviewInput::TEACHER_CHECKS)) {
             throw new DomainException('Final placement requires all professional checks to be confirmed.');
         }
+        return (int) $profile['verification_revision'];
     }
 
     public static function complete(array $profile): bool

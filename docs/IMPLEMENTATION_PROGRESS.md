@@ -1,5 +1,20 @@
 # Furoeducare Implementation Progress
 
+## Managed recruitment and placement
+
+The managed workspace now covers school employment and private tutoring, including scheduling, selection, final decisions, status updates and home tutoring safeguards. Existing application and tutoring records keep their own status histories. Staff work from the source applications or tutoring requests, and participants track the released placement stages in their dashboards.
+
+| Area | Files |
+| --- | --- |
+| Placement rules and workspace | `app/Modules/Placement/`, `config/placement-routes.php` and `bootstrap/app.php` |
+| Source and participant integrations | The Vacancy, Parent, Teacher, School, Verification and Auth modules |
+| Database | `0053_create_placements.php` and `0054_create_placement_history.php` |
+| Tests | `tests/placement-workflow.php`, `tests/placements.php`, `tests/database.php`, `tests/vacancies.php` and `tests/tutoring.php` |
+
+The placement HTTP suite passed on PHP 8.5.12 and an isolated MySQL 8.4 schema. It confirmed employment and home tutoring, exercised rejected and withdrawn placements, and checked approval, availability, professional and safeguarding restrictions, duplicate prevention and participant privacy. The vacancy, tutoring and foundation HTTP suites, all three workflow tests, and the 54-migration upgrade and rollback suite also passed. PHP lint passed for 264 files.
+
+See the [test plan](TEST_PLAN.md#managed-recruitment-and-placement) for the local walkthrough and test configuration.
+
 ## Private tutoring requests
 
 Parents can start general requests or use a public teacher reference. Both use private drafts, owner-only tracking, recommendations and confirmed arrangements. Staff manage submitted requests in the tutoring queue, search for compatible tutors, shortlist candidates and confirm professionally verified tutors. Status changes record history and in-app notifications.

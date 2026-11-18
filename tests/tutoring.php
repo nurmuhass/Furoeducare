@@ -245,60 +245,41 @@ try {
         expect($transition('arrangement_pending')[0] === 409, 'An unavailable shortlist cannot advance to arrangements.');
         $availability->execute(['now', $teacherId]);
         redirectIs($transition('arrangement_pending'), $staffDetail);
-        expect($transition('confirmed', ['ref' => $reference])[0] === 409
-            && $request($id)['status'] === 'arrangement_pending', 'Shortlisting cannot bypass professional verification at confirmation.');
         echo "PASS staff authorization, legal transitions, candidate eligibility, and owner-only recommendations.\n";
 
-        $addCv = static function (string $name) use ($db, $teacherId): int {
-            $db->prepare("INSERT INTO teacher_documents (teacher_id, kind, storage_key, display_name, media_type, bytes)
-                VALUES (?, 'cv', ?, ?, 'application/pdf', 30)")->execute([$teacherId, bin2hex(random_bytes(32)), $name]);
-            return (int) $db->lastInsertId();
-        };
-        $acceptCv = static function (int $documentId) use ($db, $teacherId, $staff): void {
-            $db->prepare("INSERT INTO teacher_document_reviews (id, document_id, teacher_id, reviewer_id, kind, decision, reason)
-                VALUES (?, ?, ?, ?, 'cv', 'accepted', 'Private CV review notes')")->execute([$documentId, $documentId, $teacherId, $staff]);
-        };
-        $oldCv = $addCv('private-first-cv.pdf');
-        $acceptCv($oldCv);
+        $db->prepare("INSERT INTO teacher_documents (teacher_id, kind, storage_key, display_name, media_type, bytes)
+            VALUES (?, 'cv', ?, 'private-current-cv.pdf', 'application/pdf', 30)")
+            ->execute([$teacherId, bin2hex(random_bytes(32))]);
+        $documentId = (int) $db->lastInsertId();
+        $db->prepare("INSERT INTO teacher_document_reviews (id, document_id, teacher_id, reviewer_id, kind, decision, reason)
+            VALUES (?, ?, ?, ?, 'cv', 'accepted', 'Private CV review notes')")
+            ->execute([$documentId, $documentId, $teacherId, $staff]);
         $db->prepare("UPDATE teacher_profiles SET verification_status = 'verified', verification_revision = 3,
             professional_verified_at = CURRENT_TIMESTAMP(6) WHERE user_id = ?")->execute([$teacherId]);
         $checks = ['identity' => true, 'qualifications' => true, 'professional_history' => true];
-        $decision = $db->prepare("INSERT INTO teacher_verification_reviews (teacher_id, reviewer_id, revision, decision, checks, reason)
-            VALUES (?, ?, ?, 'verified', ?, 'Private professional verification evidence')");
-        $decision->execute([$teacherId, $staff, 2, json_encode($checks, JSON_THROW_ON_ERROR)]);
-        $decision->execute([$teacherId, $staff, 3, json_encode(['professional_history' => false] + $checks, JSON_THROW_ON_ERROR)]);
+        $db->prepare("INSERT INTO teacher_verification_reviews (teacher_id, reviewer_id, revision, decision, checks, reason)
+            VALUES (?, ?, 3, 'verified', ?, 'Private professional verification evidence')")
+            ->execute([$teacherId, $staff, json_encode($checks, JSON_THROW_ON_ERROR)]);
         expect($transition('confirmed', ['ref' => $reference])[0] === 409,
-            'A prior full review and current accepted CV cannot replace the current professional checks.');
-        $db->prepare('UPDATE teacher_verification_reviews SET checks = ? WHERE teacher_id = ? AND revision = 3')
-            ->execute([json_encode($checks, JSON_THROW_ON_ERROR), $teacherId]);
-        $db->prepare('UPDATE teacher_documents SET delete_requested_at = CURRENT_TIMESTAMP(6) WHERE id = ?')->execute([$oldCv]);
-        $newCv = $addCv('private-current-cv.pdf');
-        expect($transition('confirmed', ['ref' => $reference])[0] === 409 && $request($id)['confirmed_teacher_id'] === null,
-            'A previously accepted CV cannot satisfy the requirement after replacement.');
-        $acceptCv($newCv);
-        $availability->execute(['unavailable', $teacherId]);
-        expect($transition('confirmed', ['ref' => $reference])[0] === 409, 'Confirmation rechecks live availability.');
-        $availability->execute(['now', $teacherId]);
-        redirectIs($transition('confirmed', ['ref' => $reference]), $staffDetail);
-        $confirmed = $request($id);
-        expect($confirmed['status'] === 'confirmed' && (int) $confirmed['confirmed_teacher_id'] === $teacherId
-            && str_contains($read($owner, $detail), $reference), 'Confirmation records the eligible teacher and the owner sees the confirmed reference.');
-        expect($transition('closed', ['note' => 'Late transition attempt.'])[0] === 409, 'Confirmed requests are terminal.');
-        echo "PASS confirmation requires live availability, current accepted CV, and current professional checks.\n";
+            'An administrator cannot confirm a fully verified tutor through the tutoring request endpoint.');
+        $pending = $request($id);
+        expect($pending['status'] === 'arrangement_pending' && $pending['confirmed_teacher_id'] === null,
+            'A denied direct confirmation keeps the arrangement pending without a confirmed tutor.');
+        echo "PASS tutoring confirmation requires the managed placement workflow.\n";
 
         $events = $db->prepare("SELECT event, title FROM verification_notifications WHERE user_id = ? AND event LIKE 'tutoring.%' ORDER BY id");
         $events->execute([$ownerId]);
         $ownerEvents = $events->fetchAll();
         expect(array_column($ownerEvents, 'event') === [
             'tutoring.submitted', 'tutoring.under_review', 'tutoring.matching', 'tutoring.shortlisted',
-            'tutoring.arrangement_pending', 'tutoring.confirmed',
-        ], 'Each successful status change notifies the parent once, including a replayed submission.');
+            'tutoring.arrangement_pending',
+        ], 'Only recorded transitions notify the parent, with a single event for a replayed submission.');
         $events->execute([$otherId]);
         expect($events->fetchAll() === [], 'An unrelated parent receives no event for another parent’s request.');
-        $confirmedTitle = htmlspecialchars($ownerEvents[array_key_last($ownerEvents)]['title'], ENT_QUOTES, 'UTF-8');
+        $arrangementTitle = htmlspecialchars($ownerEvents[array_key_last($ownerEvents)]['title'], ENT_QUOTES, 'UTF-8');
         $ownerNotifications = $read($owner, $notifications);
-        expect($confirmedTitle !== '' && str_contains($ownerNotifications, $confirmedTitle)
-            && !str_contains($read($other, $notifications . '&id=' . $id), $confirmedTitle), 'The notification tab is owner-scoped.');
+        expect($arrangementTitle !== '' && str_contains($ownerNotifications, $arrangementTitle)
+            && !str_contains($read($other, $notifications . '&id=' . $id), $arrangementTitle), 'The notification tab is owner-scoped.');
         [$otherStatus, , $otherDetail] = $other->send($detail);
         expect($otherStatus === 404 && !str_contains($otherDetail, 'fixture evidence'),
             'A different parent cannot see the submitted request or its staff updates.');

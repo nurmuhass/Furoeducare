@@ -59,6 +59,7 @@ require $partials . '/form-fields.php';
                                 <a class="btn button button-outline" href="/dashboard/school?tab=drafts">Manage recruitment drafts</a>
                                 <?php if ($complete): ?><a class="btn button button-outline" href="/dashboard/school/vacancies">Manage teaching vacancies</a><?php endif; ?>
                                 <?php if (SchoolPolicy::canRecruit($school)): ?><a class="btn button button-outline" href="/candidate-requests">Candidate requests</a><?php endif; ?>
+                                <?php if (SchoolPolicy::canRecruit($school)): ?><a class="btn button button-outline" href="/placements">View placements</a><?php endif; ?>
                             </div>
                             <h2 class="mt-4">Public resources</h2>
                             <ul>
@@ -100,6 +101,21 @@ require $partials . '/form-fields.php';
                                     <?php endforeach; ?>
                                 </ul>
                             <?php endif; ?>
+                            <h2 class="mt-4">Placement updates</h2>
+                            <?php if ($data['placementNotices'] === []): ?>
+                                <p>Placement updates will appear here after management publishes a shortlist.</p>
+                            <?php else: ?>
+                                <ul class="list-group list-group-flush">
+                                    <?php foreach ($data['placementNotices'] as $notice): ?>
+                                        <li class="list-group-item">
+                                            <strong><?= $escape($notice['title']) ?></strong>
+                                            <p><?= $escape($notice['message']) ?></p>
+                                            <small><?= $escape(substr($notice['created_at'], 0, 16)) ?> UTC</small>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php endif; ?>
+                            <?php if (SchoolPolicy::canRecruit($school)): ?><a href="/placements">View placements</a><?php endif; ?>
                             <?php break;
                         case 'settings': ?>
                             <p><a href="/privacy/controls">Privacy controls and data rights</a></p>
