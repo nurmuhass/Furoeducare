@@ -22,9 +22,12 @@ final class AuthSession
             return;
         }
 
+        $this->requirePrivateDirectory();
+
         if (!is_dir($this->directory) && !@mkdir($this->directory, 0700, true) && !is_dir($this->directory)) {
             throw new RuntimeException('Unable to create the private session directory.');
         }
+        $this->requirePrivateDirectory();
         session_name(self::NAME);
         session_set_cookie_params($this->cookieOptions() + ['lifetime' => 0]);
         if (!session_start([
@@ -39,6 +42,39 @@ final class AuthSession
         ])) {
             throw new RuntimeException('Unable to start the authentication session.');
         }
+    }
+
+    private function requirePrivateDirectory(): void
+    {
+        $public = realpath(dirname(__DIR__, 3) . '/public');
+        $path = str_replace('\\', '/', $this->directory);
+        if (!str_starts_with($path, '/') && preg_match('/\A[A-Za-z]:\//', $path) !== 1) {
+            $path = str_replace('\\', '/', getcwd()) . '/' . $path;
+        }
+        $parts = [];
+        foreach (explode('/', $path) as $part) {
+            if ($part === '' || $part === '.') continue;
+            if ($part === '..') {
+                if ($parts !== [] && !preg_match('/\A[A-Za-z]:\z/', end($parts))) array_pop($parts);
+            } else $parts[] = $part;
+        }
+        $normalized = (str_starts_with($path, '/') ? '/' : '') . implode('/', $parts);
+        $inside = static function (string $candidate, string $base): bool {
+            $candidate = rtrim(str_replace('\\', '/', $candidate), '/');
+            $base = rtrim(str_replace('\\', '/', $base), '/');
+            if (DIRECTORY_SEPARATOR === '\\') { $candidate = strtolower($candidate); $base = strtolower($base); }
+            return $candidate === $base || str_starts_with($candidate, $base . '/');
+        };
+        // Check lexical placement too: a symlink below public must not expose a private target.
+        if ($public === false || $inside($normalized, $public)) throw new RuntimeException('Session storage must be outside the public directory.');
+        $existing = $this->directory;
+        while (!file_exists($existing) && !is_link($existing)) {
+            $parent = dirname($existing);
+            if ($parent === $existing) break;
+            $existing = $parent;
+        }
+        $resolved = realpath($existing);
+        if ($resolved === false || $inside($resolved, $public)) throw new RuntimeException('Session storage requires a private filesystem ancestor.');
     }
 
     public function csrf(): string
@@ -77,6 +113,29 @@ final class AuthSession
 
         $this->start();
         $_SESSION['teacher_request'] = ['reference' => $reference, 'expires' => time() + self::IDLE_LIMIT];
+    }
+
+    /** UI preference only; the navigation policy revalidates current account roles. */
+    public function dashboardContext(?Role $role = null): ?string
+    {
+        $this->start();
+        if ($role !== null) $_SESSION['dashboard_context'] = $role->value;
+        $value = $_SESSION['dashboard_context'] ?? null;
+        return is_string($value) ? $value : null;
+    }
+
+    public function rememberEmailChange(#[\SensitiveParameter] string $token): void
+    {
+        $this->start();
+        if (AuthInput::validToken($token)) $_SESSION['email_change_continuation'] = ['token' => $token, 'expires' => time() + 1800];
+    }
+
+    public function emailChangePath(): ?string
+    {
+        $this->start();
+        $pending = $_SESSION['email_change_continuation'] ?? [];
+        if (($pending['expires'] ?? 0) <= time() || !AuthInput::validToken($pending['token'] ?? '')) return null;
+        return '/settings/email-change?token=' . $pending['token'];
     }
 
     public function teacherRequestReference(): ?string

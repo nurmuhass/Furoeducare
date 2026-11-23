@@ -14,6 +14,7 @@ $finder = $data['finder'];
 ?>
 <p class="lead text-break mb-2"><?= $escape($record['subject']) ?></p>
 <p><span class="status-badge"><?= $escape($status->label()) ?></span></p>
+<p><a href="/dashboard/admin/messages?new=1&amp;owner_id=<?= (int) $record['parent_id'] ?>&amp;owner_role=parent&amp;context_type=tutoring&amp;context_id=<?= $id ?>">Message the requesting parent</a></p>
 <?php if ($record['placement_id'] !== null): ?>
     <p><a href="/dashboard/admin/placements?id=<?= (int) $record['placement_id'] ?>">Open managed placement</a></p>
 <?php endif; ?>

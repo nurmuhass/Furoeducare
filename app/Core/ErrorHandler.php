@@ -35,6 +35,12 @@ final class ErrorHandler
             $response = $dispatch();
         } catch (HttpException $exception) {
             $response = Response::text($exception->getMessage(), $exception->status);
+        } catch (\DomainException $exception) {
+            if (in_array($exception->getCode(), [403, 404, 409, 422], true)) {
+                $response = Response::text($exception->getMessage(), $exception->getCode(), ['Cache-Control' => 'private, no-store']);
+            } else {
+                $failure = $exception;
+            }
         } catch (Throwable $exception) {
             $failure = $exception;
         } finally {
@@ -67,6 +73,7 @@ final class ErrorHandler
         $this->logger->error($record);
 
         http_response_code(500);
+        SecurityHeaders::apply();
         header('Content-Type: text/plain; charset=utf-8');
         header('Cache-Control: no-store');
         header('X-Content-Type-Options: nosniff');

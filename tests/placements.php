@@ -13,6 +13,7 @@ use Furoeducare\Modules\Teacher\TeacherRepository;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 require __DIR__ . '/support/http.php';
+require_once __DIR__ . '/support/staff-fixtures.php';
 require __DIR__ . '/support/auth-browser.php';
 require __DIR__ . '/support/school-fixtures.php';
 
@@ -75,6 +76,9 @@ function placementFixtures(PDO $db, TeacherRepository $profiles, string $passwor
             ->execute([$name . '@example.test', $hash]);
         $id = $accounts[$name] = (int) $db->lastInsertId();
         $db->prepare('INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE slug = ?')->execute([$id, $role]);
+        if ($role === 'admin') {
+            grantTestStaffRole($db, $id);
+        }
     }
     $schools = new SchoolRepository(static fn (): PDO => $db);
     foreach (['school', 'other-school'] as $name) {

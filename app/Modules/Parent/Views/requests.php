@@ -82,6 +82,7 @@ $record = $data['record'] ?? null;
     <?php $stage = TutoringStatus::from($record['status']); ?>
     <a href="/dashboard/parent?tab=requests">Back to My Requests</a>
     <h2 class="mt-3 text-break"><?= $escape($record['subject'] ?: 'Untitled tutoring draft') ?></h2>
+    <p><a href="/messages?new=1&amp;context_type=tutoring&amp;context_id=<?= (int) $record['id'] ?>">Message management about this tutoring request</a></p>
     <p><span class="status-badge"><?= $escape($stage->label()) ?></span></p>
     <?php require __DIR__ . '/tutoring-details.php'; ?>
     <?php if ($stage === TutoringStatus::Draft): ?>

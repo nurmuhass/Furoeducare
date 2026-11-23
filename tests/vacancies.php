@@ -11,6 +11,7 @@ use Furoeducare\Modules\Verification\ReviewInput;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 require __DIR__ . '/support/http.php';
+require_once __DIR__ . '/support/staff-fixtures.php';
 require __DIR__ . '/support/auth-browser.php';
 require __DIR__ . '/support/school-fixtures.php';
 
@@ -32,6 +33,9 @@ try {
             ->execute([$name . '@example.test', password_hash($password, PASSWORD_DEFAULT), (int) $verified]);
         $id = (int) $db->lastInsertId();
         $db->prepare('INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE slug = ?')->execute([$id, $role]);
+        if ($role === 'admin') {
+            grantTestStaffRole($db, $id);
+        }
         return $id;
     };
     $staffId = $account('staff', 'admin');

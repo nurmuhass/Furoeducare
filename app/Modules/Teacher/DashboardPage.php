@@ -39,6 +39,15 @@ enum DashboardPage: string
 
     public function url(): string
     {
+        if ($this === self::Notifications) {
+            return '/notifications';
+        }
+        if ($this === self::Messages) {
+            return '/messages';
+        }
+        if ($this === self::Library) {
+            return '/digital-library';
+        }
         return '/dashboard/teacher' . ($this === self::Overview ? '' : '?tab=' . $this->value);
     }
 
@@ -54,8 +63,7 @@ enum DashboardPage: string
     public function pendingMessage(): string
     {
         return match ($this) {
-            self::Library => 'Books and learning materials will appear here when the digital library opens.',
-            self::Messages => 'Conversations with the Furoeducare team will appear here once messaging is available.',
+            self::Library => 'Browse published books and learning materials in the digital library.',
         };
     }
 }

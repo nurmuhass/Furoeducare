@@ -117,7 +117,7 @@ final class AuthController
         $this->accounts->rehashIfNeeded($user, $password);
         $this->limits->clear('login-identity', $identity);
         $this->limits->clear('login-account', $email);
-        $destination = $this->session->teacherRequestPath() ?? $roles[0]->dashboard();
+        $destination = $this->session->emailChangePath() ?? $this->session->teacherRequestPath() ?? $roles[0]->dashboard();
         $this->session->authenticate($id, (int) $user['auth_version']);
         return $this->redirect($destination);
     }
@@ -140,11 +140,10 @@ final class AuthController
         }
 
         $started = hrtime(true);
-        $token = $this->accounts->register($email);
-        if ($token !== null) {
+        $this->accounts->register($email, function (string $token) use ($email): void {
             $this->mailer->deliver(EmailToken::Verification, $email, $token,
                 teacherRequestReference: $this->session->teacherRequestReference());
-        }
+        });
         $this->padEmailResponse($started);
         $this->session->notice('If this address can be registered, check your inbox for a verification link. You can also request a new link or sign in to an existing account.');
         return $this->redirect('/login');
@@ -171,8 +170,7 @@ final class AuthController
         }
 
         $started = hrtime(true);
-        $token = $this->accounts->requestLink($purpose, $email);
-        if ($token !== null) {
+        $this->accounts->requestLink($purpose, $email, function (string $token) use ($purpose, $email, $flow, $reference): void {
             $deliveryFlow = $flow;
             $deliveryReference = $reference;
             if ($purpose === EmailToken::Verification) {
@@ -185,7 +183,7 @@ final class AuthController
                 }
             }
             $this->mailer->deliver($purpose, $email, $token, $deliveryFlow, $deliveryReference);
-        }
+        });
         $this->padEmailResponse($started);
         $this->session->notice('If this address is eligible, an email with a link is on its way.');
         $query = http_build_query(['flow' => $flow?->value, 'ref' => $reference]);

@@ -108,6 +108,16 @@ final class TeacherRepository
         $this->forTeacher($id, fn (PDO $db) => $this->saveSection($db, $id, $section, $data));
     }
 
+    /** Reuse professional-evidence invalidation for a settings contact change. */
+    public function updateContactPhone(int $id, string $phone, Closure $authorize): void
+    {
+        $this->forTeacher($id, static function (PDO $db) use ($id, $phone, $authorize): void {
+            $authorize($db);
+            $db->prepare('UPDATE teacher_profiles SET phone = ? WHERE user_id = ?')->execute([$phone, $id]);
+            VerificationEvents::audit($db, $id, 'account.phone_updated', ['profile_role' => 'teacher']);
+        });
+    }
+
     private function saveSection(PDO $db, int $id, Section $section, array $data): void
     {
         $db->prepare('UPDATE teacher_profiles SET sections = JSON_SET(sections, ?, CAST(? AS JSON)), updated_at = CURRENT_TIMESTAMP(6) WHERE user_id = ?')

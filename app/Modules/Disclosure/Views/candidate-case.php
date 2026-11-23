@@ -6,6 +6,8 @@ use Furoeducare\Modules\Parent\ParentController;
 $case = $data['case'];
 $caseId = (int) $case['id'];
 $staff = $data['staff'];
+$canDisclose = ($data['adminCanDisclose'] ?? true) && (!array_key_exists('adminPermissions', $data)
+    || in_array('cv_access.manage', $data['adminPermissions'], true));
 $root = $staff ? $data['staffRoot'] : $data['root'];
 $casePath = $root . '?id=' . $caseId;
 $closed = $case['status'] === 'closed';
@@ -25,6 +27,10 @@ if ($case['selected_reference'] !== null) {
         <a href="<?= $escape($root) ?>">Back to candidate requests</a>
         <h1 class="my-3"><?= $escape($data['title']) ?></h1>
         <p><span class="status-badge"><?= $escape(ucfirst(str_replace('_', ' ', $case['status']))) ?></span></p>
+        <?php if (!$staff): ?>
+            <?php $messageContext = $tutoring ? 'tutoring' : 'recruitment'; $messageContextId = $tutoring ? $case['tutoring_id'] : $caseId; ?>
+            <?php if ($messageContextId !== null): ?><p><a href="/messages?new=1&amp;context_type=<?= $escape($messageContext) ?>&amp;context_id=<?= (int) $messageContextId ?>">Message management about this request</a></p><?php endif; ?>
+        <?php endif; ?>
         <?php if ($data['notice'] !== ''): ?>
             <p class="auth-notice" role="status"><?= $escape($data['notice']) ?></p>
         <?php endif; ?>
@@ -104,6 +110,9 @@ if ($case['selected_reference'] !== null) {
 
     <section class="mt-5" aria-labelledby="candidate-disclosure-heading">
         <h2 id="candidate-disclosure-heading">Disclosure requests</h2>
+        <?php if ($staff && !$canDisclose): ?>
+            <p class="text-body-secondary">You can review request statuses. Access decisions and revocations require CV access management permission.</p>
+        <?php endif; ?>
         <?php if ($policy->noticeUrl !== '' || $policy->contact !== ''): ?>
             <p>
                 <?php if ($policy->noticeUrl !== ''): ?>
@@ -121,7 +130,7 @@ if ($case['selected_reference'] !== null) {
             <?php require __DIR__ . '/candidate-disclosure-request.php'; ?>
         <?php endif; ?>
         <?php require __DIR__ . '/candidate-disclosure-list.php'; ?>
-        <?php if ($staff && $data['selected'] !== null): ?>
+        <?php if ($staff && $canDisclose && $data['selected'] !== null): ?>
             <?php require __DIR__ . '/candidate-disclosure-review.php'; ?>
         <?php endif; ?>
     </section>

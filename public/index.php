@@ -19,6 +19,7 @@ $root = dirname(__DIR__);
 // Prepare error reporting before loading Composer so a broken install is logged safely.
 require $root . '/app/Core/ConfigurationException.php';
 require $root . '/app/Core/Logger.php';
+require $root . '/app/Core/SecurityHeaders.php';
 require $root . '/app/Core/ErrorHandler.php';
 
 $logFile = getenv('APP_LOG_FILE', true) ?: $root . '/storage/logs/app.log';

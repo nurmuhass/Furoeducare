@@ -1,5 +1,165 @@
 # Furoeducare Implementation Progress
 
+## Comprehensive security review — 23 November 2026
+
+Implemented for review. [SECURITY_REVIEW.md](SECURITY_REVIEW.md) covers all requested audit areas, confirmed findings/severity, remediation, open risks, file inventory and exact manual steps.
+
+Fixed active PDF and dangerous DOCX acceptance, legacy stored-original policy bypass, archive/file-link handling, response filename/header containment, browser security headers and public session-directory configuration. No schema changes or production records were involved.
+
+Security regressions passed: 78 workflow checks; 50 file checks; authentication, core HTTP and foundation suites; extraction/library-file controls; full administrative and account-settings suites; focused permission/input/view/crypto checks. An OS filesystem-symlink test was skipped for unavailable Windows privilege. Production web/TLS/SMTP, malware scanning, OS parser confinement, comprehensive retention and concurrency assurance remain open. See the review for test sequencing and explicit limits. This phase stops for review.
+
+## Operational reporting and future monetisation design
+
+Implemented 16 real operational report measures with explicit date bases, inclusive WAT filters/all-time selection, human definitions and aggregate-only CSV. Report/export access requires fresh reporting and module permissions; a consistent database snapshot and attributed export audit preserve privacy. Active vacancy counts match public eligibility, confirmed placements remain successful after closure, and private drafts/expired message records are excluded. Future catalogue, pricing, order/payment, billing, invoice/provider and transaction-audit architecture is documented only. All offered services remain free; no migration, dependency, billing table, activation switch or gateway was added.
+
+Verified on 23 November 2026 with PHP 8.5.12 and isolated MySQL 8.4.13. SQL/date/CSV tests and all four HTTP reporting/free-launch groups passed, including malformed query shapes, WAT boundaries, permission revocation, HEAD/GET audits, actual anonymous free downloads and registration, rejected payment activation and unchanged schema. Chrome checks passed the real rendered report at 360/768/1440 widths with themes, focus, form/modal behavior and no overflow. All 440 PHP files, Composer strict validation, Git whitespace and foundation regressions passed. Static review found no actionable issue. No application database was changed. Full prior recruitment/CV workflows were not all rerun; production-scale profiling and manual accessibility/device checks remain. Exact file inventory, seven manual steps and definitions are in [OPERATIONAL_REPORTS.md](OPERATIONAL_REPORTS.md); the inactive future proposal is [MONETISATION_DESIGN.md](MONETISATION_DESIGN.md).
+
+## Account settings and persistent appearance
+
+Implemented MySQL-backed Light/Dark/System account preferences, local guest preferences, early theme resolution and shared native appearance controls across public/authentication pages, dashboards and shared services. `/settings/account` now joins profile/contact, password, verified email change, notifications, appearance, privacy and deactivation request controls. Password/email changes require reauthentication and invalidate other sessions/security links. Phones preserve teacher evidence and school approval rules; deactivation is linked to existing authorised privacy review. No new runtime dependency or production data change was introduced. Migrations 0083–0086 must be applied before using authenticated pages.
+
+Verified on 23 November 2026 using PHP 8.5.12, isolated MySQL 8.4.13 and isolated Chrome. All seven settings HTTP groups, appearance DB/JavaScript checks, all 86 migration fresh/upgrade/rollback/failure checks, the five-group admin high-risk regression, foundation tests and focused view/input/navigation/cryptography checks passed. Browser checks passed four role settings and five public/shared page types at three widths (27 combinations), including themes, account-vs-guest controls, focus/dialog/form payload/loading/Back behavior, contrast and overflow. The settings suite covers safe appearance return paths and existing account ownership/session restrictions. Static security review found no blocker and its session-version hardening was added.
+
+The first settings run exposed a mixed-collation email lookup, fixed with explicit comparison using the existing users email collation without changing applied migrations. Full legacy workflow suites were not all rerun. Physical-device, screen-reader and deployed SMTP/DNS checks remain release review items. File inventory, setup, test reproduction and eight exact manual steps are in [ACCOUNT_SETTINGS.md](ACCOUNT_SETTINGS.md); logs/screenshots remain private under `storage/local-preview`.
+
+## Shared dashboard usability and consistency
+
+Teacher, School, Parent and Admin now use one reusable responsive shell, grouped role navigation and common Library, Messages, Notifications and Settings links. Metrics, statuses, tables, filters/search, pagination, form errors, empty states, loading feedback and confirmation dialogs share components. Existing module records and permission/ownership/approval checks remain authoritative. Teacher notifications now receive the actual unread count. Shared request pages honour their backend-selected owner category; keyboard focus recovers when mobile/desktop navigation changes.
+
+Verified on 23 November 2026 using PHP 8.5.12, isolated MySQL 8.4.13 and isolated Chrome. Four-role HTTP/navigation/shared-service/validation/restriction and multi-role direct-link checks passed, as did the complete five-group admin security regression. Browser checks passed all four roles at 360/768/1440 widths for overflow, landmarks/IDs, selected navigation, keyboard focus, breakpoint recovery, confirmations, preserved submitter payloads, loading/Back recovery and themes. Foundation, component, dashboard availability, admin policy, notification/library view tests, 415-file PHP lint, Composer strict validation and whitespace checks passed. No migration or dependency was added; the application database remains untouched. Full legacy workflow suites were not all rerun. Exact file inventory, reproduction commands, limitations and seven manual steps are in [DASHBOARD_UI.md](DASHBOARD_UI.md).
+
+## Complete administration workspace
+
+The shared administration shell now hosts all twenty requested management areas and the existing data-rights workspace. Staff have explicit permission-based navigation, scoped overview/search/reports, account directories and reviewed suspension controls, safe email monitoring, audit activity, protected custom-role administration and allowlisted operational settings. Existing workflows retain their verification/disclosure/placement safeguards and now have central HTTP gating plus service-level permission checks.
+
+| Area | Files created or modified |
+| --- | --- |
+| Staff policy, gate, protected mutations and reads | `app/Modules/Admin/` |
+| Interface | `resources/views/admin-shell.php`, layout integration, `public/assets/admin.css`, `public/assets/admin.js`, Admin views/controller/routes |
+| Routing/shared context | Router guard support, Request form-key validation, bootstrap shared admin context, auth route replacement and safe domain errors |
+| Staff bootstrap | `bin/staff.php` |
+| Permissions and upgrade | Migrations 0077–0082 |
+| Existing management services | Verification/school suspension, directory, vacancies/applications, candidate/disclosure, tutoring, placements, library, training, messaging, privacy and staff email recipient selection |
+| Tests | Admin policy/read-model/main/search/messaging/concurrency tests, migration suite, explicit staff fixture helper and updated legacy synthetic staff assignments |
+| Documentation | ADMINISTRATION.md, README, requirements, architecture, decisions, database relationships, test plan and this record |
+
+Verified with PHP 8.5.12 and isolated MySQL 8.4.13 schemas on 23 November 2026. Administration HTTP checks passed all five role definitions, coarse-role denial, twenty module destinations, direct/override/private-file requests, navigation, search, CSRF/confirmation/stale versions, self/last-Super protections, delegation/revocation, settings restrictions, safe email/audit views and trusted bootstrap. All 82 migration bootstrap/upgrade/legacy-role selection/rollback/reapplication and failure-marker/checksum/seed checks passed. Focused search, assigned-message permission loss and two-connection role-mutex protections passed. Read/model validation and strict component/confirmation tests passed.
+
+The first HTTP run identified a too-strict test expectation for unsupported verbs (405 safely rejects them); the next reproduced a real mixed-collation UNION search error, corrected with explicit UTF-8 projection. Their logs remain private alongside final results under `storage/local-preview/admin-*.log`. The final expanded search regression passed all twelve sources, mixed collations, scoped routes, private draft exclusions, message retention and cursor queries on the same migrated disposable schema.
+
+Final verification passed syntax checks for all 406 PHP files, administration policy/input and notification view tests, all four foundation HTTP/configuration/logging/method-override groups, Composer strict validation and platform requirements, and Git whitespace checks. Legacy integration fixtures were updated and linted; every complete legacy workflow suite was not rerun in this phase.
+
+The interactive browser preview tool timed out twice. Isolated headless Chrome then rendered the actual shared components using clearly labelled synthetic preview data. Exact 360, 768 and 1440 viewport/client/scroll widths matched without horizontal overflow, tablet dark mode rendered correctly, and a top mobile Close control was added and checked. Screenshots are private under `storage/local-preview/admin-browser-preview/`; no fake production records or real application database changes were made. Deployment needs migrations and deliberate staff appointment/bootstrap. Exact setup and eight manual steps are in [ADMINISTRATION.md](ADMINISTRATION.md).
+
+## Central notifications
+
+The Notification module now supplies one event catalogue and transactional emission service, owner-scoped paginated feed/read/open/count endpoints, independent in-app/email settings and a shared dashboard header bell. Existing event records are retained in the extended legacy ledger. Account/security, verification, recruitment, candidate, disclosure, messaging, interview/placement and training hooks use the central event flow. Authentication token email retains its existing dedicated encrypted transport.
+
+| Area | Files created or modified |
+| --- | --- |
+| Event service, catalogue, access, inbox, validation and settings | `app/Modules/Notification/` |
+| Routes and shared rendering | `config/notification-routes.php`, `bootstrap/app.php`, `app/Core/View.php`, `resources/views/notification-bell.php`, shared header |
+| Dashboard navigation and legacy tabs | Teacher enum/controller/workspace, parent/school controllers and dashboard views, shared administrator dashboard |
+| Domain adapters/events | VerificationEvents, AuthService, EmailEvents/Templates, vacancy/application, candidate, placement, tutoring and school repositories |
+| Database | Migrations 0074–0076 |
+| Tests | Notification input/catalog/render-paths/views/integration/invariants/domain suites; legacy training mail, migration and parent/school/teacher expectations |
+| Documentation | NOTIFICATIONS.md, README, requirements, architecture, decisions, database diagram, email guide, test plan and this progress record |
+
+Verified on 23 November 2026 with PHP 8.5.12 and isolated MySQL 8.4.13 schemas. Main notification integration passed, including four roles, header count/feed/settings, ownership and CSRF, independent channels, safe links, stable/conflicting keys, transaction rollback, bounded mark-all, pagination, activation and password reset. Supplemental two-connection tests passed committed preference changes, legacy email-only saves and duplicates committed after an older snapshot. Real domain tests passed managed interview delivery, repeated candidate claims and training source revisions/role paths. A reproduced stale duplicate lookup was corrected with a current locking read.
+
+All 76 migration bootstrap/upgrade/backfill/rollback/reapplication and failure-marker/checksum tests passed, including preservation of legacy notifications without historical mail. Pure input/catalog/navigation/rendering and legacy training-mail tests passed. Foundation startup/configuration/logging checks, affected PHP lint, Composer strict/platform checks and Git whitespace checks passed. Parent/school/teacher legacy-tab assertions were updated and linted; their complete workflow suites were not rerun in this phase.
+
+Private evidence logs: `storage/local-preview/notifications-integration.log`, `notifications-invariants.log`, `notifications-domain.log` and `notifications-database.log`, all with exit status zero. The initial snapshot concurrency regression is preserved separately in `notifications-invariants-before-fix.log`.
+
+Setup and eight exact manual verification steps are in [NOTIFICATIONS.md](NOTIFICATIONS.md). Deployment requires the migrations and existing email worker. Interactive responsive/appearance review remains a manual step.
+
+## Training and workshops
+
+The current phase adds a public module/package catalogue, school-owned training requests, staff assignment/approval/scheduling/outcomes and managed request messaging. The design and implementation plan are recorded in [TRAINING.md](TRAINING.md). Payments remain disabled.
+
+Implementation sequence: migrations 0067–0073 and pure validation/status checks; catalogue and transactional intake/decisions; public/school/staff interfaces and dashboard navigation; generic email/in-app events and school-owned messaging; isolated migration and workflow verification. Existing changes from earlier phases remain in the working tree.
+
+| Area | Files created or modified |
+| --- | --- |
+| Training domain and shared-layout interfaces | `app/Modules/Training/` |
+| Routes, bootstrap and static landing replacement | `config/training-routes.php`, `bootstrap/app.php`, `app/Modules/Site/resources.php` |
+| Dashboard navigation | School and shared administrator dashboard views |
+| Messaging | MessageInput, MessageContext, MessagingController and conversation view context labels/links |
+| Email | EmailEvents and generic training template wording |
+| Database | Migrations 0067–0073 |
+| Tests | Training input, notification, HTTP and invariant suites; message input, migration and foundation expectations |
+| Documentation | README, TRAINING.md, requirements, architecture, decisions, database diagram, progress and test plan |
+
+Verified on 23 November 2026 using PHP 8.5.12 and isolated MySQL 8.4.13 schemas. The full HTTP workflow passed all three groups. Supplemental checks passed for preserved snapshot order, stable/conflicting retries, full request/decision rollback on forced outbox failure, selected choices beyond the first 200 and independent catalogue cursors. All 73 migration bootstrap/upgrade/rollback/reapplication, failure-marker/checksum, seed and transaction checks passed. Pure input/notification/message tests, foundation regressions, PHP syntax, Composer strict/platform checks and Git whitespace checks passed. Twenty-six representative view states rendered without warnings, including escaped metadata.
+
+Evidence is retained privately in `storage/local-preview/training-http.log`, `training-invariants.log`, `training-database.log` and `training-foundation.log`. Deployment still requires applying migrations and running the existing email worker. Interactive responsive/appearance inspection remains in the manual checklist. Full setup and eight exact manual steps are in [TRAINING.md](TRAINING.md).
+
+## Digital library
+
+The Library module provides a shared catalogue and resource details for public visitors, teachers, schools and parents. Staff manage bounded PDF/EPUB materials, reencoded JPEG/PNG covers, classification, rights metadata, publication, named-account restricted grants and download counts. Public file responses recheck publication, rights expiry and account grants. Free downloads work without registration; future paid downloads stay disabled.
+
+| Area | Files created or modified |
+| --- | --- |
+| Module and reusable views | `app/Modules/Library/` |
+| Routing, configuration and cleanup | `config/library-routes.php`, `bootstrap/app.php`, `app/Core/Config.php`, `.env.example`, `bin/library-cleanup.php` |
+| Database | Migrations 0061–0066 for resources, tags, grants, saves, downloads and file-removal ledger |
+| Dashboard integration | Teacher dashboard enum/controller/workspace, school/parent dashboard views and shared administrator dashboard |
+| Existing landing page | `app/Modules/Site/resources.php` removes the superseded static library entry |
+| Tests | `tests/library.php`, `tests/library-roles.php`, `tests/library-input.php`, `tests/library-files.php`, `tests/library-views.php`, `tests/support/library-fixtures.php`, migration/foundation/teacher regression expectations |
+| Documentation | README, `DIGITAL_LIBRARY.md`, database diagram, requirements, architecture, decisions and test plan |
+
+Code review prompted a read-only removed-resource screen, paginated grants, safe unavailable saved-item controls and deferred post-commit cleanup failures. Safe relative EPUB manifest links have regression coverage.
+
+Verified on 23 November 2026 with PHP 8.5.12 and isolated MySQL 8.4.13 schemas:
+
+- `tests/library.php` passed all three HTTP groups, covering uploads/publication, free guest access, real 13-resource pagination, owned saves/history, independent grants, expiry/revocation, revision invalidation, paid denial, EPUB replacement, stale forms, live account/role restrictions, scrubbed tombstones and physical file cleanup.
+- `tests/library-roles.php` passed teacher and pending-school free/restricted access, account history, complete 53-record grant pagination, role-loss logout/re-login and archive/removal controls.
+- `tests/library-input.php`, `tests/library-files.php` and `tests/library-views.php` passed metadata, document/image structure, private path/integrity and view safety checks.
+- `tests/database.php` passed all 66 migrations, prior-release upgrades, rollback/reapplication, checksum/failure-marker, transaction and seed checks.
+- `tests/teacher.php`, `tests/dashboard.php` and `tests/foundation.php` passed regression checks, including actual dashboard navigation, shared library redirects, safe configuration errors and logging.
+- Changed PHP syntax checks, Composer strict validation/platform checks and Git whitespace checks passed.
+
+The private verification outputs are retained in `storage/local-preview/library-suite-final.log`, `library-supplemental-final.log`, `library-database-final.log` and `library-teacher-regression.log`. Earlier library runs exposed two test assumptions: metadata edits accidentally resetting access, and expecting 403 after shared authentication invalidated a roleless account. The corrected main suite passed in a fresh schema.
+
+Browser automation timed out twice before a usable surface was returned, so interactive responsive and appearance-mode inspection remains a manual review step. No fixture books or grants were inserted into the application's real database. Deployment needs migrations, private storage permissions, upload size configuration and periodic cleanup. See [exact setup and manual verification](DIGITAL_LIBRARY.md).
+
+
+## Transactional email
+
+The Email module now supplies fourteen reusable HTML/text templates, a MySQL outbox, delivery attempts, SMTP and private file transports, account preferences and a background worker. Authentication token issuance and implemented business events commit their mail records in the same transaction. Safe email content directs recipients to authenticated screens. Failure classifications, retry limits, stable event keys, provider acknowledgements and uncertain-state handling support operational review.
+
+| Area | Files |
+| --- | --- |
+| Delivery, templates, queue and preferences | `app/Modules/Email/`, `config/email-routes.php` and `bin/email-worker.php` |
+| Configuration and dependency | `.env.example`, `app/Core/Config.php`, `composer.json` and `composer.lock` |
+| Existing workflows | Auth issuance/activation, verification events, candidate/tutoring submissions, vacancy/application events and dashboard settings |
+| Database | Migrations 0058–0060 |
+| Tests | `tests/email.php`, `tests/email-crypto.php`, `tests/email-interview.php`, `tests/support/smtp-fixture.php`, queue-aware authentication test support and migration tests |
+| Setup and operations | `docs/EMAIL.md`, README, authentication guide, requirements, architecture, decisions, database reference and test plan |
+
+The training confirmation template is available for the later training request module. The deployment still needs SMTP credentials, sender DNS, the shared encryption key and a scheduled worker. Provider acknowledgement is recorded, while later delivery details are reviewed in the provider's reporting.
+
+Verified on PHP 8.5.12 with Sodium and isolated MySQL 8.4.13 schemas. The final email integration suite passed for file delivery, actual loopback SMTP acceptance/4xx/5xx/disconnect outcomes, bounded retries, preferences and ownership, encrypted and consumed tokens, transactional rollback, duplicate events, safe logs and uncertainty after a post-send persistence failure. A focused test confirmed one teacher invitation for managed scheduling. Authentication, teacher onboarding and the 60-migration upgrade/rollback suites passed. PHP syntax, Composer validation/platform and Git whitespace checks passed. Production provider delivery, sender DNS and scheduled execution remain deployment checks.
+
+## Managed messaging
+
+Account holders can open private threads with management, link eligible requests, read messages and receive generic notifications. Staff can search and filter conversations, claim responsibility, reply, update status and place a preservation hold. The thread inbox and history use pagination. Read acknowledgements support vanilla JavaScript and ordinary forms.
+
+| Area | Files |
+| --- | --- |
+| Workflow, access and rendering | `app/Modules/Messaging/`, `config/messaging-routes.php`, `bootstrap/app.php` and `public/assets/messaging.js` |
+| Database and retention | Migrations 0055–0057 and `bin/message-retention.php` |
+| Existing entry points | Teacher, parent, school and administrator dashboards, plus request, information request, vacancy, application and placement views |
+| Tests | `tests/message-input.php`, `tests/messaging.php`, `tests/database.php` and `tests/parent.php` |
+| Documentation | Requirements, architecture, decisions, database reference, this progress log, test plan and the draft privacy notice |
+
+The initial retention period is 365 days from closure, with an audited staff hold. The deployment needs a scheduled run of the cleanup command and a backup retention policy. The reviewed operational schedule can replace this initial setting. Messaging notifications use the existing in-app notification service.
+
+Verified on PHP 8.5.12 and isolated MySQL 8.4.13 databases. The messaging HTTP suite passed for all three account roles, source ownership, CSRF, script escaping, private notifications, independent read cursors, staff assignment, status changes, send retries, filters, message pagination, account rate limits and retention. A second run also verified the read receipt case for an account with both teacher and administrator roles. The 57-migration upgrade and rollback suite, parent dashboard regression, input checks and HTTP foundation suite passed. PHP lint passed for 282 files and JavaScript syntax and Git whitespace checks passed. Interactive browser review and deployment scheduling remain manual checks.
+
+See the [manual messaging walkthrough](TEST_PLAN.md#managed-messaging) for setup, access checks, pagination and retention verification.
+
+
 ## Managed recruitment and placement
 
 The managed workspace now covers school employment and private tutoring, including scheduling, selection, final decisions, status updates and home tutoring safeguards. Existing application and tutoring records keep their own status histories. Staff work from the source applications or tutoring requests, and participants track the released placement stages in their dashboards.

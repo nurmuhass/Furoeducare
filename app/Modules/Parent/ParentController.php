@@ -55,7 +55,13 @@ final class ParentController
             return $this->problem('Form expired', 'Reopen the form and try again.', 403);
         }
 
+        if ($request->path === self::DASHBOARD && $request->query('tab') === 'notifications') {
+            return $this->redirect('/notifications');
+        }
         $profile = $this->parents->profile($viewer['id']);
+        if ($request->path === self::DASHBOARD && $request->query('tab') === 'messages') {
+            return $this->redirect('/messages');
+        }
         if ($request->path === self::DASHBOARD . '/profile') {
             return $this->saveProfile($request, $viewer, $profile);
         }

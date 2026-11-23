@@ -45,6 +45,9 @@ final class SchoolController
             return $this->problem('Form expired', 'Reopen the form and try again.', 403);
         }
 
+        if ($request->path === self::DASHBOARD && $request->query('tab') === 'notifications') {
+            return $this->redirect('/notifications');
+        }
         $id = $viewer['id'];
         $school = $this->schools->find($id);
         if ($school === null || SchoolStatus::forSchool($school) === SchoolStatus::Suspended) {
@@ -203,6 +206,7 @@ final class SchoolController
             'school' => $school, 'email' => $viewer['email'], 'tab' => $tab, 'tabs' => self::TABS,
             'reviews' => in_array($tab, ['overview', 'notifications'], true) ? $this->schools->reviews($viewer['id']) : [],
             'placementNotices' => $tab === 'notifications' ? $this->events->forUser($viewer['id'], eventPrefix: 'placement.') : [],
+            'messageNotices' => $tab === 'notifications' ? $this->events->forUser($viewer['id'], eventPrefix: 'messaging.') : [],
         ], $status);
     }
 

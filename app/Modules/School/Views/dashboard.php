@@ -22,26 +22,13 @@ require $partials . '/form-fields.php';
         <?php if ($data['notice'] !== ''): ?><p class="auth-notice mb-3" role="status"><?= $escape($data['notice']) ?></p><?php endif; ?>
 
         <div class="row g-4 align-items-start">
-            <aside class="col-lg-3">
+            <div class="col-12">
                 <div class="form-panel">
-                    <nav aria-label="School dashboard navigation">
-                        <ul class="nav nav-pills flex-column gap-1">
-                            <?php foreach ($data['tabs'] as $key => $label): ?>
-                                <?php $active = $tab === $key; ?>
-                                <li class="nav-item"><a class="nav-link <?= $active ? 'active' : '' ?>" href="/dashboard/school<?= $key === 'overview' ? '' : '?tab=' . $key ?>"
-                                    <?= $active ? 'aria-current="page"' : '' ?>><?= $escape($label) ?></a></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </nav>
-                </div>
-            </aside>
-            <div class="col-lg-9">
-                <div class="form-panel">
-                    <?php if ($errors !== []): ?><p class="form-summary" role="alert">Review the highlighted fields and try again.</p><?php endif; ?>
+                    <?= \Furoeducare\UI\Components::error($errors) ?>
                     <?php switch ($tab):
                         case 'overview': ?>
                             <h2>Approval status</h2>
-                            <p><span class="status-badge"><?= $escape($status->label()) ?></span></p>
+                            <p><?= \Furoeducare\UI\Components::status($status->value, $status->label()) ?></p>
                             <?php if (isset($reviews[0]) && $reviews[0]['decision'] === $status->value): ?>
                                 <p class="my-2"><?= $escape($reviews[0]['reason']) ?></p>
                             <?php endif; ?>
@@ -116,8 +103,25 @@ require $partials . '/form-fields.php';
                                 </ul>
                             <?php endif; ?>
                             <?php if (SchoolPolicy::canRecruit($school)): ?><a href="/placements">View placements</a><?php endif; ?>
+                            <h2 class="mt-4">Message updates</h2>
+                            <?php if ($data['messageNotices'] === []): ?>
+                                <p>You have no message notifications yet.</p>
+                            <?php else: ?>
+                                <ul class="list-group list-group-flush">
+                                    <?php foreach ($data['messageNotices'] as $notice): ?>
+                                        <li class="list-group-item">
+                                            <strong><?= $escape($notice['title']) ?></strong>
+                                            <p><?= $escape($notice['message']) ?></p>
+                                            <small><?= $escape(substr($notice['created_at'], 0, 16)) ?> UTC</small>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php endif; ?>
+                            <a href="/messages">Open messages</a>
                             <?php break;
                         case 'settings': ?>
+                            <p><a href="/settings/account">Account security, phone, appearance and deactivation requests</a></p>
+                            <p><a href="/settings/notifications">Notification settings</a></p>
                             <p><a href="/privacy/controls">Privacy controls and data rights</a></p>
                             <h2>Account</h2>
                             <p class="mb-2">Verified representative email <?= $escape($data['email']) ?></p>

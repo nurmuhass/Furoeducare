@@ -94,8 +94,28 @@ final class SchoolRepository
             }
             if ($previousStatus !== $status) {
                 VerificationEvents::record($db, $id, $id, 'verification.school.resubmitted',
-                    ['from' => $previousStatus->value, 'to' => $status->value], 'School profile returned to review',
+                    ['revision' => (int) $school['revision'] + 1, 'from' => $previousStatus->value, 'to' => $status->value], 'School profile returned to review',
                     'Furoeducare will review your updated school information.');
+            }
+        });
+    }
+
+    /** Settings changes preserve the organisation and its approval-review boundary. */
+    public function updateContactPhone(int $id, string $phone, Closure $authorize): void
+    {
+        Database::transaction(($this->database)(), function (PDO $db) use ($id, $phone, $authorize): void {
+            $school = $this->editable($id);
+            $authorize($db);
+            if ($school['contact_phone'] === $phone) return;
+            $status = SchoolStatus::forSchool($school);
+            $db->prepare("UPDATE school_onboarding SET contact_phone = ?, revision = revision + 1,
+                review_status = IF(review_status = 'approved' OR approved_at IS NOT NULL, 'pending', review_status),
+                approved_at = NULL WHERE user_id = ?")->execute([$phone, $id]);
+            VerificationEvents::audit($db, $id, 'account.phone_updated', ['profile_role' => 'school']);
+            if ($status === SchoolStatus::Approved) {
+                VerificationEvents::record($db, $id, $id, 'verification.school.resubmitted',
+                    ['revision' => (int) $school['revision'] + 1, 'from' => $status->value, 'to' => SchoolStatus::Pending->value],
+                    'School profile returned to review', 'Furoeducare will review your updated contact information.');
             }
         });
     }
@@ -133,6 +153,10 @@ final class SchoolRepository
             return 'self';
         }
         return Database::transaction(($this->database)(), function (PDO $db) use ($reviewer, $id, $revision, $decision, $reason, $checks): string {
+            if ($decision === SchoolStatus::Suspended) {
+                \Furoeducare\Modules\Admin\StaffAccess::lockRoles($db);
+            }
+            \Furoeducare\Modules\Admin\StaffAccess::requireIn($db, $reviewer, 'verification.manage', true);
             $query = $db->prepare('SELECT suspended_at, email_verified_at FROM users WHERE id = ? FOR UPDATE');
             $query->execute([$id]);
             $account = $query->fetch();

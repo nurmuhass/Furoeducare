@@ -4,6 +4,87 @@ The schema runs on MySQL 8.4 LTS. Tables use InnoDB and default to `utf8mb4_0900
 
 ## Entity relationship diagram
 
+Account settings add migrations 0083–0086. `account_preferences` and `account_contact_details` have at most one row per user and cascade with the account. Optional contact details serve staff accounts; teacher, parent and school contacts remain in their existing role profiles. `account_email_changes` holds hashed expiring single-use challenges bound to an account email/version; token plaintext exists only as encrypted outbox content until delivery. Pending addresses are not reserved: the unique users email constraint is checked again when confirming.
+
+`account_deactivation_requests` references the existing management privacy queue, so requests are reviewable with existing permissions. A generated unique pending-user key prevents duplicate active requests. These request records restrict deletion and retain their audit trail. Cancellation resolves the linked privacy queue entry; management review is shown independently of actual account suspension.
+
+```mermaid
+erDiagram
+    USERS ||--o| ACCOUNT_PREFERENCES : chooses
+    USERS ||--o| ACCOUNT_CONTACT_DETAILS : staff_contact
+    USERS ||--o{ ACCOUNT_EMAIL_CHANGES : verifies
+    USERS ||--o{ ACCOUNT_DEACTIVATION_REQUESTS : requests
+    CANDIDATE_PRIVACY_REQUESTS ||--o| ACCOUNT_DEACTIVATION_REQUESTS : reviewed_in
+```
+
+Staff permissions add migrations 0077–0082. Staff role membership is independent of the four account categories. Only explicit grants confer management capabilities.
+
+```mermaid
+erDiagram
+    USERS ||--o{ STAFF_USER_ROLES : assigned
+    STAFF_ROLES ||--o{ STAFF_USER_ROLES : grants
+    USERS |o--o{ STAFF_USER_ROLES : appointed_by
+    STAFF_ROLES ||--o{ STAFF_ROLE_PERMISSIONS : confers
+```
+
+`staff_roles` has a unique stable slug, display name, built-in protection and revision. `staff_role_permissions` has a composite role/permission key and cascades only on deliberate role deletion. `staff_user_roles` has a composite user/role key, indexes role references through InnoDB foreign keys, cascades deleted account membership, restricts deletion of assigned roles, and preserves grant provenance through nullable staff references. All use utf8mb4/InnoDB and UTC timestamps. Mutable role definitions have `updated_at`; immutable membership/permission records have creation timestamps. Account `auth_version` changes invalidate sessions on staff assignment/role changes.
+
+Built-in roles and permissions are fixed migration snapshots, followed by a one-time oldest-active-verified-legacy-admin grant. New administrators are not automatically mapped. A locked Super Admin role row coordinates protected staff/suspension changes. Operational admin settings use one versioned JSON object in existing `system_settings`, with a restricted key set and no environment secrets or payment activation.
+
+Central notifications extend `verification_notifications` in 0074, backfill its existing records in 0075, and add `in_app_notification_preferences` in 0076. The legacy table name is retained for compatibility; it is the shared ledger for every implemented event category.
+
+```mermaid
+erDiagram
+    USERS ||--o{ VERIFICATION_NOTIFICATIONS : receives
+    USERS ||--o| IN_APP_NOTIFICATION_PREFERENCES : configures
+    USERS ||--o| EMAIL_NOTIFICATION_PREFERENCES : configures
+    USERS ||--o{ EMAIL_OUTBOX : receives_independent_channel
+```
+
+Ledger identity is unique on `(user_id, event_key)`, with SHA-256 keys and presentation fingerprints. In-app visibility preserves suppressed-event identity. Nullable `read_at` records read state. Composite indexes support visible/unread/category cursor queries by owner. The new preference record defaults all six categories to enabled; user deletion cascades preferences and notifications. Email settings and queue relationships remain unchanged. Legacy IDs are backfilled without copying records or sending mail, and safe historical navigation uses the authenticated role dashboard. Read status does not need soft deletion or an `updated_at`; notification content is immutable and read time is explicit.
+
+Training adds migrations 0067–0073. Modules and packages are versioned independently. Requests own immutable submitted module snapshots and attributed decision history. User foreign keys distinguish the requesting school, assigned staff and approving staff. No payment or training-file tables are introduced.
+
+```mermaid
+erDiagram
+    USERS |o--o{ TRAINING_MODULES : creates
+    USERS |o--o{ TRAINING_PACKAGES : creates
+    TRAINING_PACKAGES ||--o{ TRAINING_PACKAGE_MODULES : orders
+    TRAINING_MODULES ||--o{ TRAINING_PACKAGE_MODULES : belongs_to
+    USERS ||--o{ TRAINING_REQUESTS : school_requests
+    USERS |o--o{ TRAINING_REQUESTS : assigns_or_approves
+    TRAINING_PACKAGES |o--o{ TRAINING_REQUESTS : selected_as
+    TRAINING_REQUESTS ||--|{ TRAINING_REQUEST_MODULES : captures
+    TRAINING_MODULES ||--o{ TRAINING_REQUEST_MODULES : snapshots
+    TRAINING_REQUESTS ||--|{ TRAINING_REQUEST_HISTORY : records
+    USERS |o--o{ TRAINING_REQUEST_HISTORY : decides
+```
+
+Module/package catalogue indexes cover status and cursor IDs, with module categories also indexed. Package membership has a unique position and module key. Requests have unique opaque references and school/submission-token pairs, plus owner, status and assignment indexes. Snapshot membership is unique per request/module; decision history is indexed by request and ID. The snapshot JSON includes selection position so later package edits cannot change order. History JSON retains the scheduled details and decision revision. All tables use InnoDB, utf8mb4 and UTC timestamps. Only mutable records have `updated_at`; immutable membership/snapshot/history entries have `created_at`.
+
+Referenced modules, packages and school users use RESTRICT. Package membership and request-owned snapshots/history use CASCADE for deliberate parent deletion. Creator/assignee/approver/history actor references use SET NULL for staff deletion. Requests do not use soft deletion. `message_conversations.context_type` now accepts `training`; its existing polymorphic context ID is authorised against `training_requests.school_id` in PHP.
+
+The Digital Library adds migrations 0061–0066. This focused diagram complements the platform relationships below.
+
+```mermaid
+erDiagram
+    USERS |o--o{ LIBRARY_RESOURCES : creates_or_confirms
+    LIBRARY_RESOURCES ||--o{ LIBRARY_RESOURCE_TAGS : classifies
+    LIBRARY_RESOURCES ||--o{ LIBRARY_ACCESS_GRANTS : authorises
+    USERS ||--o{ LIBRARY_ACCESS_GRANTS : receives
+    USERS |o--o{ LIBRARY_ACCESS_GRANTS : grants_or_revokes
+    USERS ||--o{ LIBRARY_SAVED_RESOURCES : saves
+    LIBRARY_RESOURCES ||--o{ LIBRARY_SAVED_RESOURCES : retained_reference
+    LIBRARY_RESOURCES ||--o{ LIBRARY_DOWNLOADS : records
+    USERS |o--o{ LIBRARY_DOWNLOADS : downloads
+```
+
+`library_resources` owns publication state, revision, optional creator/rights confirmer, private storage metadata and rights expiry. Its opaque public reference is unique. Tags have a composite `(resource_id, kind, label)` primary key and an indexed lookup by classification. Deleting a resource row would cascade tags, while grants, saves and download references restrict deletion so removal uses a scrubbed tombstone instead.
+
+`library_access_grants` links one recipient and resource revision with scope, reason, expiry and attributable staff decisions. A generated nullable active-recipient key prevents multiple unrevoked grants for the same recipient/resource. Recipients and resource foreign keys restrict deletion; nullable staff references use SET NULL. Account eligibility and current resource revision are checked at download time even when a grant row exists.
+
+`library_saved_resources` has a composite owner/resource key, a captured title and owner cascade. `library_downloads` records revision, captured title and UTC timestamp; visitors have a NULL user, and deleted account references become NULL. Indexes support resource statistics and account cursor history. The independent `library_file_removals` ledger is keyed by random storage key and deliberately has no resource foreign key, allowing cleanup after a replacement or removal commits. No sessions or paid transactions are added by this phase.
+
 ```mermaid
 erDiagram
     USERS ||--o{ USER_ROLES : receives
@@ -13,6 +94,14 @@ erDiagram
     USERS |o..o{ AUDIT_LOGS : acts_in
     USERS ||--o| SCHOOL_ONBOARDING : has
     USERS ||--o| PARENT_PROFILES : has
+    USERS ||--o{ EMAIL_OUTBOX : receives
+    EMAIL_OUTBOX ||--o{ EMAIL_DELIVERY_ATTEMPTS : records
+    USERS ||--o| EMAIL_NOTIFICATION_PREFERENCES : configures
+    USERS ||--o{ MESSAGE_CONVERSATIONS : owns_or_manages
+    MESSAGE_CONVERSATIONS ||--o{ CONVERSATION_MESSAGES : contains
+    MESSAGE_CONVERSATIONS ||--o{ CONVERSATION_READS : tracks
+    USERS ||--o{ CONVERSATION_MESSAGES : sends
+    USERS ||--o{ CONVERSATION_READS : acknowledges
     PARENT_PROFILES ||--o{ PARENT_TUTORING_REQUESTS : owns
     USERS ||--o{ CANDIDATE_REQUESTS : submits
     VACANCIES |o--o{ CANDIDATE_REQUESTS : relates_to
@@ -376,7 +465,7 @@ Install a current MySQL 8.4 LTS patch. Keep it on a different port if XAMPP's Ma
    php bin/database.php status
    ```
 
-   The first status shows all migrations pending on an empty schema. The final status shows them applied through `0054_create_placement_history`. In production, use a dedicated migration identity with schema privileges and a runtime identity with only the data privileges it needs.
+   The first status shows all migrations pending on an empty schema. The final status shows them applied through `0060_create_email_notification_preferences`. In production, use a dedicated migration identity with schema privileges and a runtime identity with only the data privileges it needs.
 
 ## Migrations and transactions
 
@@ -384,6 +473,8 @@ Install a current MySQL 8.4 LTS patch. Keep it on a different port if XAMPP's Ma
 - Stop parent request and directory enquiry writers before applying 0039–0043 so the tutoring import captures every existing record. Migration 0040 preserves the original timestamps. Migration 0041 copies parent directory enquiries into tutoring requests and leaves school enquiries in their existing workflow. The tutoring data backfill and import are irreversible.
 - Stop application writers before applying 0044–0052. Migrations 0045 and 0046 import school enquiries and submitted tutoring requests into candidate cases. They create no grants. Revocation and download records refer to the granted document ID even when its private file is later removed. The two imports are irreversible.
 - Migrations 0053–0054 create the managed placement and decision history tables. A placement has exactly one source, with at most one row per application and one non-rejected row per tutoring request. Earlier application and tutoring outcomes remain in the source records. Back up the database before rolling back these tables. Rolling back removes the managed placement records and their decision history.
+- Migrations 0055–0057 create messaging conversations, messages and read cursors. Conversations reference account holders and assigned staff. Messages reference conversations and authenticated senders. Each account has one monotonically advancing read cursor per conversation. A conversation's typed optional source reference is validated by application ownership checks. Message and latest/read cursor IDs deliberately have no foreign key dependency so retention can remove content while preserving lifecycle evidence. Unique form tokens prevent duplicate conversations and messages. Apply and reverse these migrations in order while writers are stopped.
+- Migrations 0058–0060 add the email outbox, attempt ledger and account preferences. Each outbox event has one recipient, a unique hashed event key, safe JSON fields, an optional encrypted token secret, status and retry/lease metadata. Attempts reference the outbox and uniquely identify each attempt number. Preferences have one row per account and default to enabled categories. Stop the HTTP application and workers before upgrading or rolling back. Rollback removes queued mail and its delivery history, so back up and reconcile pending or accepted sends before using it on a populated database.
 
 - Add the next four-digit version under `database/migrations/`. Each PHP file returns one `up` DDL statement and a `down` statement when reversal is practical. Use `null` for an irreversible migration. Keep applied files immutable. The runner checks the file hashes and refuses modified, missing or out-of-order applied history.
 - `php bin/database.php rollback` reverses the latest recorded migration. Reversing 0038 drops saved jobs. Reversing 0037 relaxes the candidate reference and status constraints. The application reference backfill in 0036 is irreversible so existing references and decision history are preserved. Take a backup before rolling back a database with data. Apply and roll back on an autocommit connection. MySQL commits DDL independently of surrounding DML transactions. [MySQL atomic DDL and implicit commits](https://dev.mysql.com/doc/refman/8.4/en/atomic-ddl.html)

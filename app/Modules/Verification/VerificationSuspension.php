@@ -22,6 +22,7 @@ final class VerificationSuspension
         $otherOwns = $current !== null && $other->fetchColumn() === $current;
 
         if ($suspend && $current === null) {
+            \Furoeducare\Modules\Admin\StaffAccess::protectLastSuper($db, $id);
             $now = $db->query('SELECT CURRENT_TIMESTAMP(6)')->fetchColumn();
             $db->prepare('UPDATE users SET suspended_at = ?, auth_version = auth_version + 1 WHERE id = ?')->execute([$now, $id]);
             return $now;

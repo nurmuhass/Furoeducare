@@ -1,5 +1,47 @@
 # Furoeducare Project Requirements
 
+## Security review acceptance — 23 November 2026
+
+The [security review](SECURITY_REVIEW.md) records findings, fixes, test evidence, manual steps and unverified deployment/policy controls. PDF/DOCX uploads and previously stored originals must satisfy the documented conservative content policy before processing/distribution. Session storage must remain outside the web root. Normal and early-error responses share browser containment headers. These measures do not replace malware scanning, a reviewed retention policy or production verification. No business workflow, payment activation or schema was added in this review.
+
+## Operational reporting and free launch
+
+Authorised administrators receive real operational counts for teacher registration/availability/verification, school approval, parents, active vacancies, applications, successful placements, tutoring, downloads, training and retained message/request activity. Reports support inclusive WAT dates, an explicit all-time option and safe aggregate CSV. Both page/export require reporting access plus each underlying data permission; exports contain no personal records or documents and have attributed audit events.
+
+All currently offered services remain free. No order, billing record or payment may be required for registration, recruitment requests, controlled CV access or authorised library downloads. The existing unavailable `future_paid` library category remains reserved, with no checkout. Future catalogue, pricing, order/payment/billing/invoice/provider/audit concepts are a proposal only and require a separate formally approved implementation. See [report definitions and tests](OPERATIONAL_REPORTS.md) and [future monetisation design](MONETISATION_DESIGN.md).
+
+## Account settings and appearance
+
+Light, Dark and System Default apply through Bootstrap theme attributes and shared CSS variables across public/authentication pages, every dashboard, Library, Messages, forms, tables and dialogs. Guest choices use local storage. Registered account choices persist in MySQL and take precedence before stylesheet rendering. Existing role profile editors, notification preferences and privacy controls integrate with one account settings page.
+
+Password changes require the current password and invalidate other sessions/security links. Email changes require current-password reauthentication and a version-bound expiring single-use challenge delivered to the proposed address; only the same authenticated account can confirm, and GET does not change state. Phone updates preserve role ownership and evidence/organisation review. School editing preserves one account. Teacher controls respect management publication and disclosure policy. Deactivation is a confirmed, reauthenticated management-review request with cancellation/history and existing administrator protections. See [account settings setup and review](ACCOUNT_SETTINGS.md).
+
+## Shared dashboard interface
+
+Teacher, School, Parent and Admin use a reusable dashboard sidebar/header with grouped role navigation, responsive keyboard-accessible navigation and common Overview, Digital Library, Messages, Notifications and Settings destinations. Staff-only destinations remain permission filtered; unavailable staff features have explanatory noninteractive states. Teacher profile/recruitment, school recruitment/development and parent tutoring links follow the requested scope. Shared pages retain valid dashboard context and reflect the backend-selected owner category on multi-role workflows. Metrics use backend records. Common forms, tables, filters, status indicators, pagination and empty/error/loading/confirmation states remain accessible in light, dark and system appearance. See [dashboard UI review and checks](DASHBOARD_UI.md).
+
+## Administration implementation scope
+
+The administration workspace covers overview, teacher/school/parent directories, verification/publication, recruitment and disclosure, placements, library, training, messaging, delivery monitoring, reports, staff, audit and safe settings. Explicit staff roles grant separate read/write capabilities. The admin account category alone grants no management capability. Defaults are Super Admin, Recruitment Officer, Verification Officer, Library Manager and Training Coordinator, with custom roles and bounded delegation.
+
+Every management HTTP route is permission-gated, sensitive services recheck permissions transactionally, and sensitive actions require confirmation and audit/history. Staff and suspension changes preserve an active Super Admin and invalidate affected sessions. UI navigation, search, metrics and reports are scoped to permissions. Private documents and CV disclosure have distinct controls. Secrets remain in environment configuration and payments remain disabled. See [administration setup, permission matrix and manual review](ADMINISTRATION.md).
+
+## Central notifications implementation scope
+
+All account categories receive relevant owner-scoped dashboard notifications for account verification/security, school/teacher checks, vacancies/applications, candidate requests/shortlists, CV decisions, messages, interviews, placements and training. A shared bell exposes unread count and a paginated feed with explicit read/mark-all actions and authorised internal destinations. In-app and email channels have independent category preferences. One event service joins business transactions and prevents duplicate deliveries using stable source keys. Existing records are retained and essential authentication links keep their established email behavior. See [notification design, operations and manual checks](NOTIFICATIONS.md).
+
+## Training and workshops implementation scope
+
+Administrators manage module metadata, publication and ordered training packages. Public visitors browse published programmes. Active, email-verified schools with complete, approved profiles submit requests for one or more modules or an available package, participant count, preferred future dates, location and requirements. Each request retains the submitted programme details and package title.
+
+Management assigns staff, reviews and discusses the request, records approval, schedules or reschedules sessions, and records completion outcomes or cancellation reasons. Statuses are Submitted, Under Review, Discussion, Scheduled, Completed and Cancelled. Schools track only their own requests and communicate through school-to-management training conversations. Events notify schools and staff with generic content and authenticated links. Training materials are metadata only and payment collection remains disabled. See [training design and setup](TRAINING.md).
+
+## Digital library implementation scope
+
+The public website and teacher, school and parent dashboards share a searchable, filterable catalogue. Guests download published free resources. Registered accounts save resources, view their own download history and use explicit administrator grants for restricted resources. Administrators manage material and cover uploads, metadata, categories/subjects/levels, publication states, distribution rights, named-account grants and download statistics. Every file response passes server-side authorisation. Paid access stays disabled.
+
+Initial material formats are PDF/EPUB (20 MiB); covers are JPEG/PNG (3 MiB). Publication requires an attributable distribution confirmation, licence and private evidence reference. Files are private, edits return published content to review, and licence expiry prevents public access. Operational and manual verification instructions are in [DIGITAL_LIBRARY.md](DIGITAL_LIBRARY.md).
+
 Draft for review · 16 November 2026
 
 Furoeducare is an education recruitment and services platform for Nigeria. It helps schools and families discover teachers, gives teachers and National Youth Service Corps (NYSC) members a route into recruitment, and lets Furoeducare management coordinate verification and placement. The initial release is free. Recruitment, placement, training and library services may become paid after formal activation.
@@ -42,6 +84,10 @@ The three customer categories are Teacher / NYSC Member, School / Educational In
 | BR-18 | Payment features remain disabled until formally activated. | Initial-release workflows can be completed free of charge and expose no checkout or payment processing. Formal activation is a separate project decision. |
 
 School approval, teacher professional verification, teacher directory approval and original CV access approval are separate business decisions. The stated vacancy and placement gates apply even when actions bypass the interface.
+
+Managed messaging gives each teacher, school or parent account private text conversations with Furoeducare staff. A conversation can refer to an owned recruitment case, vacancy, tutoring request, candidate information request or placement, or to general support. Management assigns staff, tracks Open, Pending and Closed conversations, and searches the queue. Each account has its own read cursor. New-message notifications omit the message body. Closed content expires after 365 days unless a preservation hold applies.
+
+Transactional email uses a background outbox worker, a maintained SMTP library and a private development transport. Token issuance and implemented business events queue mail with their database changes. The worker supports bounded retries, failure logs, stable event and Message-ID values, notification preferences and provider acknowledgement tracking. Authentication emails carry expiring single-use links. Business emails use generic content and authenticated dashboard links. Training intake, assignment and decision events use the existing generic training template with recipient-specific authenticated request links.
 
 Candidate requests link a verified parent to their submitted tutoring request or an approved school to its vacancy. Staff claim cases, review their purpose and publish shortlists. A shortlist reveals the candidate reference and any currently public professional title. Restricted professional fields and original CVs require separate, scoped, time-limited grants approved by an assigned administrator under the configured [disclosure policy](DISCLOSURE_POLICY.md).
 

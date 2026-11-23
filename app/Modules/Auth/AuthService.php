@@ -6,6 +6,7 @@ namespace Furoeducare\Modules\Auth;
 
 use Closure;
 use Furoeducare\Core\Database;
+use Furoeducare\Modules\Notification\NotificationEvents;
 use PDO;
 use PDOException;
 use RuntimeException;
@@ -59,12 +60,14 @@ final class AuthService
         }
     }
 
-    public function register(string $email): ?string
+    public function register(string $email, ?Closure $enqueue = null): ?string
     {
         try {
-            return Database::transaction(($this->database)(), function (PDO $db) use ($email): string {
+            return Database::transaction(($this->database)(), function (PDO $db) use ($email, $enqueue): string {
                 $db->prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)')->execute([$email, self::PENDING_HASH]);
-                return $this->issue(EmailToken::Verification, (int) $db->lastInsertId(), $email);
+                $token = $this->issue(EmailToken::Verification, (int) $db->lastInsertId(), $email);
+                $enqueue?->__invoke($token);
+                return $token;
             });
         } catch (PDOException $error) {
             if (($error->errorInfo[1] ?? null) === 1062 && $this->findUser($email) !== null) {
@@ -74,16 +77,18 @@ final class AuthService
         }
     }
 
-    public function requestLink(EmailToken $purpose, string $email): ?string
+    public function requestLink(EmailToken $purpose, string $email, ?Closure $enqueue = null): ?string
     {
-        return Database::transaction(($this->database)(), function () use ($purpose, $email): ?string {
+        return Database::transaction(($this->database)(), function () use ($purpose, $email, $enqueue): ?string {
             $user = $this->findUser($email, true);
             if ($user === null || $user['suspended_at'] !== null
                 || ($purpose === EmailToken::Verification && $user['email_verified_at'] !== null)
                 || ($purpose === EmailToken::PasswordReset && $user['email_verified_at'] === null)) {
                 return null;
             }
-            return $this->issue($purpose, (int) $user['id'], $user['email']);
+            $token = $this->issue($purpose, (int) $user['id'], $user['email']);
+            $enqueue?->__invoke($token);
+            return $token;
         });
     }
 
@@ -126,6 +131,7 @@ final class AuthService
         $assigned = $db->prepare('SELECT 1 FROM user_roles WHERE user_id = ? LIMIT 1');
         $assigned->execute([$id]);
         if ($assigned->fetchColumn() !== false) {
+            NotificationEvents::record($db, $id, $id, 'account.verified', ['event_key' => 'welcome:' . $id], 'Email verified', 'Your email has been verified. Open your dashboard for the next steps.');
             return;
         }
 
@@ -134,6 +140,7 @@ final class AuthService
         if ($grant->rowCount() !== 1) {
             throw new RuntimeException('The reference account roles have not been seeded.');
         }
+        NotificationEvents::record($db, $id, $id, 'account.verified', ['event_key' => 'welcome:' . $id], 'Email verified', 'Your email has been verified. Open your dashboard for the next steps.');
     }
 
     public function resetPassword(#[\SensitiveParameter] string $token, #[\SensitiveParameter] string $password): bool
@@ -141,6 +148,9 @@ final class AuthService
         return $this->consume(EmailToken::PasswordReset, $token, static function (PDO $db, int $id) use ($password): void {
             $db->prepare('UPDATE users SET password_hash = ?, auth_version = auth_version + 1 WHERE id = ?')
                 ->execute([password_hash($password, PASSWORD_DEFAULT), $id]);
+            $query = $db->prepare('SELECT auth_version FROM users WHERE id = ?');
+            $query->execute([$id]);
+            NotificationEvents::record($db, $id, $id, 'account.password_changed', ['revision' => (int) $query->fetchColumn()], 'Password changed', 'Your account password was changed.');
         });
     }
 

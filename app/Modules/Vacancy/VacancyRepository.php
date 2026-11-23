@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Furoeducare\Modules\Vacancy;
 
+use Furoeducare\Modules\Admin\StaffAccess;
+
 use Closure;
 use DomainException;
 use Furoeducare\Core\Database;
@@ -125,6 +127,9 @@ final class VacancyRepository
     public function transition(int $id, int $actor, bool $staff, int $revision, string $action, string $note): void
     {
         Database::transaction(($this->database)(), function (PDO $db) use ($id, $actor, $staff, $revision, $action, $note): void {
+            if ($staff) {
+                StaffAccess::requireIn($db, $actor, 'vacancies.manage', true);
+            }
             $row = $this->lock($id, $staff ? null : $actor);
             $this->checkRevision($row, $revision);
             $from = VacancyStatus::from($row['status']);
@@ -258,6 +263,12 @@ final class VacancyRepository
     {
         $db->prepare('INSERT INTO vacancy_history (vacancy_id, actor_user_id, from_status, to_status, revision, note) VALUES (?, ?, ?, ?, ?, ?)')
             ->execute([$id, $actor, $from?->value, $to->value, $revision, $note]);
+        $query = $db->prepare('SELECT school_id FROM vacancies WHERE id = ?');
+        $query->execute([$id]);
+        VerificationEvents::record($db, $actor, (int) $query->fetchColumn(), 'vacancy.transition',
+            ['vacancy_id' => $id, 'revision' => $revision, 'to' => $to->value,
+                'event_key' => 'vacancy:' . $id . ':' . $revision . ':' . $to->value],
+            'Vacancy update', 'Your vacancy status has changed. Open your vacancies to review the details.');
         VerificationEvents::audit($db, $actor, 'vacancy.transition', ['vacancy_id' => $id, 'from' => $from?->value, 'to' => $to->value, 'revision' => $revision]);
     }
 

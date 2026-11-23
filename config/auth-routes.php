@@ -15,7 +15,7 @@ return static function (Router $router, AuthController $auth): void {
 
     $router->add('GET', '/dashboard', static fn () => $auth->dashboard(null));
     foreach (Role::cases() as $role) {
-        if ($role->hasProfileRegistration()) {
+        if ($role->hasProfileRegistration() || $role === Role::Admin) {
             continue;
         }
         $router->add('GET', $role->dashboard(), static fn () => $auth->dashboard($role));

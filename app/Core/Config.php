@@ -20,10 +20,12 @@ final class Config
         public readonly string $authMailDirectory,
         public readonly string $authSessionDirectory,
         public readonly string $teacherDocumentDirectory,
+        public readonly string $libraryStorageDirectory,
         public readonly string $disclosurePolicyVersion,
         public readonly string $disclosurePolicyApprovalRef,
         public readonly string $disclosurePrivacyNoticeUrl,
         public readonly string $disclosurePrivacyContact,
+        public readonly array $mailOptions,
     ) {
     }
 
@@ -76,10 +78,22 @@ final class Config
             $read('AUTH_MAIL_DIR', $root . '/storage/mail'),
             $read('AUTH_SESSION_DIR', $root . '/storage/sessions'),
             $read('TEACHER_DOCUMENT_DIR', $root . '/storage/teacher-documents'),
+            $read('LIBRARY_STORAGE_DIR', $root . '/storage/library'),
             $read('DISCLOSURE_POLICY_VERSION', ''),
             $read('DISCLOSURE_POLICY_APPROVAL_REF', ''),
             $read('DISCLOSURE_PRIVACY_NOTICE_URL', ''),
             $read('DISCLOSURE_PRIVACY_CONTACT', ''),
+            [
+                'transport' => $read('MAIL_TRANSPORT', $environment === 'development' ? 'file' : 'smtp'),
+                'smtp_host' => $read('MAIL_SMTP_HOST', ''),
+                'smtp_port' => $read('MAIL_SMTP_PORT', '587'),
+                'smtp_username' => $read('MAIL_SMTP_USERNAME', ''),
+                'smtp_password' => $read('MAIL_SMTP_PASSWORD', ''),
+                'smtp_encryption' => $read('MAIL_SMTP_ENCRYPTION', 'tls'),
+                'timeout' => $read('MAIL_TIMEOUT', '15'),
+                'encryption_key' => $read('MAIL_ENCRYPTION_KEY', ''),
+                'log_file' => $read('APP_LOG_FILE', $root . '/storage/logs/app.log'),
+            ],
         );
     }
 

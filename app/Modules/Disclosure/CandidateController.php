@@ -61,7 +61,7 @@ final class CandidateController
                 $canLink = $role === Role::School && $case['vacancy_id'] === null && $case['legacy_directory_id'] !== null
                     && in_array($case['status'], ['draft', 'submitted'], true);
                 return $this->page('case', 'Candidate request #' . $id, [
-                    'case' => $case, 'staff' => false,
+                    'case' => $case, 'staff' => false, 'role' => $role,
                     'shortlist' => $this->cases->shortlist($case, false),
                     'disclosures' => $this->disclosures->forCase($id, false),
                     'canLink' => $canLink, 'vacancies' => $canLink ? $this->cases->vacancies($owner) : [],
@@ -73,6 +73,7 @@ final class CandidateController
                     throw new DomainException('An approved school account is required to open a recruitment request.', 403);
                 }
                 return $this->page('new', 'Request candidates', [
+                    'role' => $role,
                     'reference' => $this->reference($request->query('ref'), directoryOnly: true),
                     'vacancies' => $this->cases->vacancies($owner),
                 ]);
@@ -81,7 +82,7 @@ final class CandidateController
             $before = self::number($request->query('before')) ?? PHP_INT_MAX;
             return $this->queue($this->cases->ownerCases($owner, $role, $before), staff: false, role: $role);
         } catch (DomainException $error) {
-            return $this->problem($error);
+            return $this->problem($error, $role ?? null);
         }
     }
 
@@ -142,7 +143,7 @@ final class CandidateController
                 'options' => $canPrepare ? $this->cases->options($case) : [], 'selected' => $selected, 'preview' => $preview,
             ]);
         } catch (DomainException $error) {
-            return $this->problem($error);
+            return $this->problem($error, $role ?? null);
         }
     }
 
@@ -158,7 +159,7 @@ final class CandidateController
             $response = $this->disclosures->download($viewer['id'], $role, $this->requiredId($request->form('id')));
             return new Response($response->body, $response->status, self::HEADERS + $response->headers);
         } catch (DomainException $error) {
-            return $this->problem($error);
+            return $this->problem($error, $role ?? null);
         }
     }
 
@@ -171,9 +172,9 @@ final class CandidateController
         try {
             $role = $this->ownerRole($viewer);
             $profile = $this->disclosures->professional($viewer['id'], $role, $this->requiredId($request->query('id')));
-            return $this->page('profile', 'Approved professional profile', ['profile' => $profile]);
+            return $this->page('profile', 'Approved professional profile', ['profile' => $profile, 'role' => $role]);
         } catch (DomainException $error) {
-            return $this->problem($error);
+            return $this->problem($error, $role ?? null);
         }
     }
 
@@ -324,7 +325,7 @@ final class CandidateController
         return new DomainException('This candidate request or disclosure could not be found.', 404);
     }
 
-    private function problem(DomainException $error): Response
+    private function problem(DomainException $error, ?Role $role = null): Response
     {
         $title = match ($error->getCode()) {
             403 => 'Access denied',
@@ -334,7 +335,7 @@ final class CandidateController
             default => throw $error,
         };
         return Response::html($this->view->render(dirname(__DIR__) . '/Auth/Views/problem.php', $title, [
-            'message' => $error->getMessage(), 'signedIn' => true, 'csrf' => $this->session->csrf(),
+              'message' => $error->getMessage(), 'signedIn' => true, 'csrf' => $this->session->csrf(), 'role' => $role,
         ]), $error->getCode(), self::HEADERS);
     }
 

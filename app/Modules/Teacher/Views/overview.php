@@ -49,15 +49,12 @@ $hasCv = in_array('cv', array_column($profile['sections']['documents']['files'],
 <section class="teacher-overview-section" aria-labelledby="activity-title">
     <h2 id="activity-title">Application activity</h2>
     <p><a href="<?= $escape(DashboardPage::Applications->url()) ?>">View my applications</a></p>
-    <dl class="teacher-metrics">
+    <div class="dashboard-metrics" aria-label="Application metrics">
         <?php foreach (['Total applications' => $data['applicationCounts']['total'],
             'Active applications' => $data['applicationCounts']['active'], 'Interview invitations' => $data['applicationCounts']['interviews']] as $metric => $value): ?>
-            <div class="teacher-card">
-                <dt><?= $escape($metric) ?></dt>
-                <dd><?= $escape((string) $value) ?></dd>
-            </div>
+            <?= \Furoeducare\UI\Components::metric($metric, (int) $value) ?>
         <?php endforeach; ?>
-    </dl>
+    </div>
 </section>
 
 <div class="teacher-overview-updates">

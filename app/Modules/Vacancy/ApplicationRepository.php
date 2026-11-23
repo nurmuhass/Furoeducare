@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Furoeducare\Modules\Vacancy;
 
+use Furoeducare\Modules\Admin\StaffAccess;
+
 use Closure;
 use DomainException;
 use Furoeducare\Core\Database;
+use Furoeducare\Modules\Email\EmailEvents;
 use Furoeducare\Modules\Placement\PlacementRepository;
 use Furoeducare\Modules\Verification\TeacherEligibility;
 use Furoeducare\Modules\Verification\VerificationEvents;
@@ -93,6 +96,9 @@ final class ApplicationRepository
     public function transition(int $id, int $actor, bool $staff, string $expected, ApplicationStatus $to, string $note): void
     {
         Database::transaction(($this->database)(), function (PDO $db) use ($id, $actor, $staff, $expected, $to, $note): void {
+            if ($staff) {
+                StaffAccess::requireIn($db, $actor, 'applications.manage', true);
+            }
             $row = $this->read('SELECT status FROM vacancy_applications WHERE id = ?' . ($staff ? '' : ' AND teacher_id = ?')
                 . ' FOR UPDATE', $staff ? [$id] : [$id, $actor])[0] ?? null;
             if ($row === null) {
@@ -120,13 +126,22 @@ final class ApplicationRepository
     public static function recordPlacementStage(PDO $db, int $id, int $actor, ApplicationStatus $from, ApplicationStatus $to): void
     {
         $db->prepare('UPDATE vacancy_applications SET status = ? WHERE id = ?')->execute([$to->value, $id]);
-        self::event($db, $id, $actor, $from, $to, 'Updated through managed placement.');
+        self::event($db, $id, $actor, $from, $to, 'Updated through managed placement.', sendInvitation: false);
     }
 
-    private static function event(PDO $db, int $id, int $actor, ?ApplicationStatus $from, ApplicationStatus $to, string $note): void
+    private static function event(PDO $db, int $id, int $actor, ?ApplicationStatus $from, ApplicationStatus $to, string $note, bool $sendInvitation = true): void
     {
+        if ($to === ApplicationStatus::Submitted) {
+            EmailEvents::staff($db, 'application:' . $id, 'new_application', '/dashboard/admin/vacancies/application?id=' . $id);
+        }
         $db->prepare('INSERT INTO vacancy_application_history (application_id, actor_user_id, from_status, to_status, note)
             VALUES (?, ?, ?, ?, ?)')->execute([$id, $actor, $from?->value, $to->value, $note]);
+        $history = (int) $db->lastInsertId();
+        $query = $db->prepare('SELECT teacher_id FROM vacancy_applications WHERE id = ?');
+        $query->execute([$id]);
+        VerificationEvents::record($db, $actor, (int) $query->fetchColumn(), 'application.' . $to->value,
+            ['application_id' => $id, 'history_id' => $history, 'to' => $to->value, 'send_invitation' => $sendInvitation],
+            'Application update', 'Your application status has changed. Open your dashboard to review the details.');
         VerificationEvents::audit($db, $actor, 'vacancy.application.transition', ['application_id' => $id, 'from' => $from?->value, 'to' => $to->value]);
     }
 

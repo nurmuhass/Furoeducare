@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Furoeducare\Modules\Directory;
 
+use Furoeducare\Modules\Admin\StaffAccess;
+
 use Closure;
 use Furoeducare\Core\Database;
 use Furoeducare\Modules\Verification\VerificationEvents;
@@ -48,6 +50,7 @@ final class DirectoryRepository
             return 'forbidden';
         }
         return Database::transaction(($this->database)(), function (PDO $db) use ($actor, $id, $revision, $fields, $jpeg): string {
+            StaffAccess::requireIn($db, $actor, 'directory.manage', true);
             $account = $this->lockTeacher($db, $id);
             if ($account === null) {
                 return 'missing';
@@ -109,6 +112,7 @@ final class DirectoryRepository
             return 'forbidden';
         }
         return Database::transaction(($this->database)(), function (PDO $db) use ($actor, $id, $revision): string {
+            StaffAccess::requireIn($db, $actor, 'directory.manage', true);
             if ($this->lockTeacher($db, $id) === null) {
                 return 'missing';
             }

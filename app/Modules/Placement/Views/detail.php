@@ -26,6 +26,9 @@ $statusLabel = static fn (string $value): string => ucfirst(str_replace('_', ' '
         <p><?= $tutoring ? 'Private tutoring arrangement' : 'School employment placement' ?>
             <span class="status-badge ms-2"><?= $escape($statusLabel($status)) ?></span>
         </p>
+        <?php if (!$staff): ?>
+            <p><a href="/messages?new=1&amp;context_type=placement&amp;context_id=<?= $id ?>">Message management about this placement</a></p>
+        <?php endif; ?>
         <?php if ($data['notice'] !== ''): ?>
             <p class="auth-notice" role="status"><?= $escape($data['notice']) ?></p>
         <?php endif; ?>

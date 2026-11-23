@@ -34,8 +34,15 @@ final class Response
     public function send(bool $head = false): void
     {
         http_response_code($this->status);
-        header('X-Content-Type-Options: nosniff');
+        SecurityHeaders::apply();
+        $privateSession = session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['account']);
+        if ($privateSession) {
+            // Public pages now include account appearance and account controls.
+            header('Cache-Control: private, no-store');
+            header('Vary: Cookie');
+        }
         foreach ($this->headers as $name => $value) {
+            if ($privateSession && strtolower($name) === 'cache-control') continue;
             header($name . ': ' . $value);
         }
 

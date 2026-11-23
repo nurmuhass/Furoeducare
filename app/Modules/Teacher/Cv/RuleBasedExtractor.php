@@ -17,7 +17,11 @@ final class RuleBasedExtractor implements CvExtractor
 
     public function extract(string $path, string $mediaType): array
     {
-        if (!is_file($path) || !is_readable($path)) {
+        clearstatcache(true, $path);
+        $size = @filesize($path);
+        if (is_link($path) || !is_file($path) || !is_readable($path) || !is_int($size)
+            || $size < 1 || $size > 5 * 1024 * 1024
+            || ($mediaType === 'application/pdf' && !CvContent::isPdf($path, $size))) {
             throw new ExtractionFailure('unreadable');
         }
 

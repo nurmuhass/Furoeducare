@@ -58,8 +58,8 @@ final class TeacherDocuments
         };
         if ($mime === null) {
             throw new InvalidArgumentException($kind === 'cv'
-                ? 'Choose a valid PDF or DOCX file for your CV.'
-                : 'Choose a valid PDF, DOCX, JPEG or PNG file.');
+                ? 'Choose a valid DOCX or a PDF without active content or compressed objects. Re-export unsupported PDFs, or enter your profile manually.'
+                : 'Choose a valid DOCX, JPEG, PNG or a PDF without active content or compressed objects. Re-export unsupported PDFs.');
         }
 
         $base = preg_replace('/[^A-Za-z0-9._ -]/', '_', pathinfo($name, PATHINFO_FILENAME));
@@ -69,6 +69,10 @@ final class TeacherDocuments
         $this->retryRemovals($teacher);
         if (!move_uploaded_file($temporary, $path)) {
             throw new RuntimeException('Unable to store the private teacher document.');
+        }
+        if (!@chmod($path, 0600)) {
+            $this->deleteFile($key);
+            throw new RuntimeException('Unable to secure the private teacher document.');
         }
 
         try {
@@ -86,20 +90,37 @@ final class TeacherDocuments
         if ($document === null) {
             return null;
         }
-        $body = @file_get_contents($this->privatePath($document['storage_key']), length: self::MAX_BYTES + 1);
+        $path = $this->privatePath($document['storage_key']);
+        $stat = @lstat($path);
+        $stream = @fopen($path, 'rb');
+        $body = false;
+        if ($stream !== false) {
+            try {
+                $opened = fstat($stream);
+                if ($stat !== false && $opened !== false && $opened['ino'] === $stat['ino'] && $opened['dev'] === $stat['dev']
+                    && ($opened['mode'] & 0170000) === 0100000 && $opened['size'] === (int) $document['bytes']) {
+                    $body = stream_get_contents($stream, self::MAX_BYTES + 1);
+                }
+            } finally { fclose($stream); }
+        }
         if ($body === false || strlen($body) !== (int) $document['bytes']) {
             if ($this->repository->document($teacher, $id) === null) {
                 return null;
             }
             throw new RuntimeException('Unable to read the private teacher document.');
         }
+        if (!CvContent::allowsDownload($body, $document['media_type'])) {
+            return null;
+        }
 
         return new Response($body, 200, [
             'Content-Type' => $document['media_type'],
-            'Content-Disposition' => 'attachment; filename="' . $document['display_name'] . '"',
+            'Content-Disposition' => 'attachment; filename="' . preg_replace('/[^A-Za-z0-9._ -]/', '_', $document['display_name']) . '"',
             'Content-Length' => (string) strlen($body),
             'Cache-Control' => 'no-store',
             'Referrer-Policy' => 'no-referrer',
+            'X-Content-Type-Options' => 'nosniff',
+            'Content-Security-Policy' => "default-src 'none'; sandbox",
         ]);
     }
 
@@ -146,7 +167,13 @@ final class TeacherDocuments
         if ($directory === false || $this->inside($directory, $public)) {
             throw new RuntimeException('Teacher documents must be stored outside the public directory.');
         }
-        return $directory . DIRECTORY_SEPARATOR . $key;
+        $path = $directory . DIRECTORY_SEPARATOR . $key;
+        clearstatcache(true, $path);
+        $stat = @lstat($path);
+        if (is_link($path) || ($stat !== false && ($stat['mode'] & 0170000) !== 0100000)) {
+            throw new RuntimeException('Invalid teacher document file.');
+        }
+        return $path;
     }
 
     private function inside(string $path, string $directory): bool

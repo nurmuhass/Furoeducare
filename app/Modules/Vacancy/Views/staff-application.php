@@ -12,6 +12,7 @@ $transitions = array_filter($status->transitions(true), static fn (ApplicationSt
         <a href="/dashboard/admin/vacancies/applications">Teaching applications</a>
         <h1 class="mt-3">Review application</h1>
         <a href="/dashboard/admin/verification/teachers?id=<?= (int) $application['teacher_id'] ?>">Review teacher profile</a>
+        <p><a href="/dashboard/admin/messages?new=1&amp;owner_id=<?= (int) $application['teacher_id'] ?>&amp;owner_role=teacher&amp;context_type=vacancy&amp;context_id=<?= (int) $application['vacancy_id'] ?>">Message the applicant</a></p>
     </div>
 </section>
 <section class="site-shell section-space">

@@ -39,8 +39,6 @@ try {
         $publicPages = [
             '/about' => 'About us',
             '/services' => 'Our services',
-            '/digital-library' => 'Digital library',
-            '/training-workshops' => 'Training and workshops',
             '/contact' => 'Contact us',
             '/login' => 'Log in',
             '/register' => 'Create an account',
@@ -59,10 +57,7 @@ try {
                 expect(str_contains($page, 'Draft awaiting legal review'), "$path must disclose its draft status.");
             }
         }
-        foreach (['/digital-library', '/training-workshops'] as $path) {
-            [, , $page] = request($base, $path);
-            expect(str_contains($page, 'data-empty-state'), "$path must offer an intentional empty state.");
-        }
+
         foreach (['/contact'] as $path) {
             [$postStatus] = request($base, $path, 'POST', 'preview=1');
             expect($postStatus === 405, "$path must not accept backend submissions.");

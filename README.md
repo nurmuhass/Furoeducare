@@ -1,10 +1,26 @@
 # Furoeducare
 
+The [security review](docs/SECURITY_REVIEW.md) records the 23 November 2026 findings, fixes, tests, exact manual verification steps and outstanding deployment/privacy work. It is a targeted review, not a security certification. See the PDF/DOCX compatibility restrictions before uploading or distributing documents.
+
+The [operational reports guide](docs/OPERATIONAL_REPORTS.md) covers permission-scoped metrics, WAT date filters, aggregate CSV, tests and manual review at `/dashboard/admin/reports`. [Future monetisation](docs/MONETISATION_DESIGN.md) is a design proposal only. Current offered services remain free; no billing schema, payment switch or gateway is installed.
+
+The [account settings guide](docs/ACCOUNT_SETTINGS.md) covers saved account appearance, password and verified email changes, contact/profile controls, notifications/privacy and deactivation requests. Apply migrations 0083–0086, then open `/settings/account`. Required verification emails use the existing background email worker; development can use the private file transport.
+
+The [shared dashboard UI guide](docs/DASHBOARD_UI.md) documents the Teacher, School, Parent and Admin shell, reusable components, grouped role navigation, responsive/accessibility checks, changed files and exact manual review. This UI phase adds no migrations or runtime dependencies.
+
+The [administration guide](docs/ADMINISTRATION.md) covers all management workspaces, five staff role templates, protected custom-role assignment, migration 0077–0082 behavior and trusted initial Super Admin bootstrap. Open `/dashboard/admin` after migration and staff assignment. The `admin` account marker alone grants no management permissions.
+
+The [central notification guide](docs/NOTIFICATIONS.md) covers the dashboard bell/inbox, independent channel settings, source-event deduplication and manual checks. Apply migrations 0074–0076 and use `/notifications` or `/settings/notifications` after signing in.
+
+The [training and workshops guide](docs/TRAINING.md) covers module/package publishing, approved-school requests, staff scheduling, outcomes, messaging, notifications and manual verification. Apply migrations 0067–0073, then open `/training-workshops` or the training link in your school/administrator dashboard.
+
+The [digital library guide](docs/DIGITAL_LIBRARY.md) covers public downloads, dashboard access, administrator publishing and grants, private storage, upload limits, cleanup and manual checks. Apply migrations 0061–0066 before using the catalogue. Open `/digital-library` or `/dashboard/admin/library` after setup.
+
 Core PHP application for an education recruitment and services platform in Nigeria. The public site serves its homepage at `/`, with service, account entry, contact and draft legal pages. The application liveness probe is at `/health`. Login and registration use MySQL. The contact form remains a browser-only preview.
 
 ## Windows development
 
-1. Install the latest stable patch of PHP 8.5 for Windows and a current Composer 2 release. Use the x64 non-thread-safe PHP build for the CLI. In the local PHP installation, create `php.ini` from `php.ini-development`, set `extension_dir = "ext"`, and enable `openssl`, `pdo_mysql`, `fileinfo`, `zip`, `xmlreader` and `gd`. Use the [official Windows PHP downloads](https://www.php.net/downloads.php?os=windows) and [Composer setup](https://getcomposer.org/download/).
+1. Install the latest stable patch of PHP 8.5 for Windows and a current Composer 2 release. Use the x64 non-thread-safe PHP build for the CLI. In the local PHP installation, create `php.ini` from `php.ini-development`, set `extension_dir = "ext"`, and enable `openssl`, `pdo_mysql`, `fileinfo`, `zip`, `xmlreader`, `gd` and `sodium`. Use the [official Windows PHP downloads](https://www.php.net/downloads.php?os=windows) and [Composer setup](https://getcomposer.org/download/).
 2. If you use XAMPP, check its PHP separately with `C:\xampp\php\php.exe -v`. Put PHP 8.5 first in the current PowerShell session's PATH. The following commands assume PHP is in `C:\tools\php85`.
 
    ```powershell
@@ -28,6 +44,8 @@ Core PHP application for an education recruitment and services platform in Niger
 5. Open [the home page](http://127.0.0.1:8000/) and [the health endpoint](http://127.0.0.1:8000/health). The health response is HTTP 200 with `{"status":"ok"}`. This verifies PHP startup, configuration and routing. MySQL can be offline during this check. Use the [PHP CLI server](https://www.php.net/manual/en/features.commandline.webserver.php) only for local development.
 
 Install MySQL 8.4 LTS and use a dedicated MySQL account. Follow the [database guide](docs/DATABASE.md) to create an empty local schema, apply and seed migrations, or reset a disposable development database. The home and health routes can run before database setup.
+
+Authentication and notification emails use the transactional outbox. Configure the encryption key and local file transport, then run `php bin/email-worker.php 50` to deliver pending development mail. The [email guide](docs/EMAIL.md) covers SMTP settings, background processing, preferences and sender DNS.
 
 ## Configuration and logs
 

@@ -98,6 +98,7 @@ final class DisclosureRepository
         Database::transaction(($this->database)(), function (PDO $db) use (
             $admin, $id, $request, $decision, $reason, $evidence, $hours, $reviewed, $document, $revision, $teacher, $owner, $notice,
         ): void {
+            \Furoeducare\Modules\Admin\StaffAccess::requireIn($db, $admin, 'cv_access.manage', true);
             $this->cases->lockAccounts($owner, $teacher, $admin);
             $this->cases->requireAdmin($admin, lock: true);
             $case = $this->cases->lockCase($id);
@@ -178,6 +179,7 @@ final class DisclosureRepository
             throw new DomainException('Record the revocation reason.', 422);
         }
         Database::transaction(($this->database)(), function (PDO $db) use ($admin, $case, $grant, $reason, $row): void {
+            \Furoeducare\Modules\Admin\StaffAccess::requireIn($db, $admin, 'cv_access.manage', true);
             $this->cases->lockAccounts((int) $row['recipient_id'], (int) $row['teacher_id'], $admin);
             $this->cases->requireAdmin($admin, lock: true);
             $this->cases->requireAssigned($this->cases->lockCase($case), $admin);

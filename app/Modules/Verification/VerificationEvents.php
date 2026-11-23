@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Furoeducare\Modules\Verification;
 
 use Closure;
+use Furoeducare\Modules\Notification\NotificationEvents;
 use PDO;
 
 final class VerificationEvents
@@ -18,8 +19,7 @@ final class VerificationEvents
         PDO $db, int $actor, int $recipient, string $event, array $context, string $title, string $message,
     ): void {
         self::audit($db, $actor, $event, ['user_id' => $recipient] + $context);
-        $db->prepare('INSERT INTO verification_notifications (user_id, event, title, message) VALUES (?, ?, ?, ?)')
-            ->execute([$recipient, $event, $title, $message]);
+        NotificationEvents::record($db, $actor, $recipient, $event, $context, $title, $message);
     }
 
     public static function audit(PDO $db, int $actor, string $event, array $context): void
@@ -31,7 +31,7 @@ final class VerificationEvents
     public function forUser(int $user, int $limit = 30, ?string $eventPrefix = null): array
     {
         $query = ($this->database)()->prepare(
-            'SELECT title, message, created_at FROM verification_notifications WHERE user_id = ?'
+            'SELECT title, message, created_at FROM verification_notifications WHERE user_id = ? AND in_app_visible = 1'
             . ($eventPrefix === null ? '' : ' AND event LIKE ?') . ' ORDER BY id DESC LIMIT ?'
         );
         $query->bindValue(1, $user, PDO::PARAM_INT);

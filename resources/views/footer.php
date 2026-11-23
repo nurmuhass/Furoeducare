@@ -24,14 +24,7 @@
                     <a href="/login">Log in</a>
                 </div>
             </nav>
-            <div class="footer-theme" data-theme-picker hidden>
-                <label class="footer-label" for="theme">Appearance</label>
-                <select id="theme" class="form-select theme-select">
-                    <option value="system">System default</option>
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                </select>
-            </div>
+            <div class="footer-theme"><?php require $partials . '/appearance-picker.php'; ?></div>
         </div>
         <div class="footer-end">
             <span>© <?= gmdate('Y') ?> <?= $escape($data['appName']) ?></span>

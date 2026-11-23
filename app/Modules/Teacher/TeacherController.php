@@ -75,13 +75,13 @@ final class TeacherController
 
         $hash = password_hash($request->form('password'), PASSWORD_DEFAULT);
         $started = hrtime(true);
-        $token = $this->accounts->register($email) ?? $this->accounts->requestLink(EmailToken::Verification, $email);
+        $enqueue = fn (string $token) => $this->mailer->deliver(EmailToken::Verification, $email, $token, flow: Role::Teacher);
+        $token = $this->accounts->register($email, $enqueue) ?? $this->accounts->requestLink(EmailToken::Verification, $email, $enqueue);
         if ($token !== null) {
             $this->session->rememberRegistration(Role::Teacher, $token, [
                 'values' => $values, 'password_hash' => $hash,
                 'terms_version' => TeacherInput::TERMS, 'privacy_version' => TeacherInput::PRIVACY,
             ]);
-            $this->mailer->deliver(EmailToken::Verification, $email, $token, flow: Role::Teacher);
         }
         $remaining = 300_000 - (int) ((hrtime(true) - $started) / 1000);
         if ($remaining > 0) {
@@ -320,14 +320,14 @@ final class TeacherController
                 'placementEvents' => $this->verificationEvents->forUser($viewer['id'], 3, 'placement.'),
             ]),
             DashboardPage::Jobs => $this->workspace($tab, 'jobs', $profile, $viewer),
+            DashboardPage::Messages => $this->redirect('/messages'),
+            DashboardPage::Library => $this->redirect('/digital-library'),
             DashboardPage::Applications => $this->myApplications($request, $profile, $viewer),
             DashboardPage::Placements => $this->workspace($tab, 'placements', $profile, $viewer, [
                 'placementEvents' => $this->verificationEvents->forUser($viewer['id'], 5, 'placement.'),
             ]),
             DashboardPage::SavedJobs => $this->savedJobs($request, $profile, $viewer),
-            DashboardPage::Notifications => $this->workspace($tab, 'notifications', $profile, $viewer, [
-                'notifications' => $this->verificationEvents->forUser($viewer['id']),
-            ]),
+            DashboardPage::Notifications => $this->redirect('/notifications'),
             DashboardPage::Settings => $this->workspace($tab, 'settings', $profile, $viewer),
             default => $this->workspace($tab, 'pending', $profile, $viewer),
         };
@@ -380,6 +380,7 @@ final class TeacherController
     ): Response {
         return $this->page('workspace', $title ?? $tab->label(), [
             'teacherWorkspace' => true,
+            'signedIn' => true,
             'panel' => $panel,
             'tab' => $tab,
             'profile' => $profile,

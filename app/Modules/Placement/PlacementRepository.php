@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Furoeducare\Modules\Placement;
 
+use Furoeducare\Modules\Admin\StaffAccess;
+
 use Closure;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -32,6 +34,7 @@ final class PlacementRepository
     public function startEmployment(int $staff, int $application): int
     {
         return Database::transaction(($this->database)(), function (PDO $db) use ($staff, $application): int {
+            StaffAccess::requireIn($db, $staff, 'placements.manage', true);
             $source = $this->sources->employment($db, $application);
             $owner = (int) $source['requester_id'];
             $teacher = (int) $source['teacher_id'];
@@ -47,6 +50,7 @@ final class PlacementRepository
     public function startTutoring(int $staff, int $request, string $ref, string $mode): int
     {
         return Database::transaction(($this->database)(), function (PDO $db) use ($staff, $request, $ref, $mode): int {
+            StaffAccess::requireIn($db, $staff, 'placements.manage', true);
             $source = $this->sources->tutoring($db, $request);
             $owner = (int) $source['requester_id'];
             $this->accounts->requireAdmin($staff);
@@ -140,6 +144,9 @@ final class PlacementRepository
             throw self::missing();
         }
         Database::transaction($db, function (PDO $db) use ($initial, $id, $revision, $action, $actor, $input, $staff): void {
+            if ($staff) {
+                StaffAccess::requireIn($db, $actor, 'placements.manage', true);
+            }
             $kind = $initial['kind'];
             $employment = $kind === 'employment';
             $source = $employment ? $this->sources->employment($db, (int) $initial['application_id'])
@@ -284,7 +291,7 @@ final class PlacementRepository
         $db->prepare('INSERT INTO placement_history (placement_id, actor_user_id, from_status, to_status, action, note, context)
             VALUES (?, ?, ?, ?, ?, ?, ?)')->execute([$row['id'], $actor, $row['status'] ?? null, $next->value, $action,
                 $note, json_encode((object) $context, JSON_THROW_ON_ERROR)]);
-        $audit = ['placement_id' => (int) $row['id'], 'action' => $action, 'from' => $row['status'] ?? null, 'to' => $next->value];
+        $audit = ['history_id' => (int) $db->lastInsertId(), 'placement_id' => (int) $row['id'], 'action' => $action, 'from' => $row['status'] ?? null, 'to' => $next->value];
         if (in_array($action, ['assign', 'safeguard'], true)) {
             VerificationEvents::audit($db, $actor, 'placement.' . $action, $audit);
             return;

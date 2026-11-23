@@ -9,6 +9,7 @@ use Furoeducare\Core\Database\SeedRunner;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 require __DIR__ . '/support/http.php';
+require_once __DIR__ . '/support/staff-fixtures.php';
 
 require __DIR__ . '/support/auth-browser.php';
 require __DIR__ . '/support/school-fixtures.php';
@@ -119,10 +120,10 @@ try {
         redirectIs($school->submit('/verify-school', ['token' => $schoolToken] + schoolFields('school@example.test', $password), $schoolForm), '/dashboard/school');
         [$schoolStatus, , $pending] = $school->send('/dashboard/school');
         expect($schoolStatus === 200 && str_contains($pending, 'Pending approval')
-            && !str_contains($pending, 'Your school is approved.'), 'Authentication must never approve a school.');
+            && !str_contains($pending, 'Your school is approved to submit vacancies'), 'Authentication must never approve a school.');
         expect($db->query('SELECT approved_at FROM school_onboarding')->fetchColumn() === null, 'New school approval must be null.');
         $db->exec("UPDATE school_onboarding SET approved_at = CURRENT_TIMESTAMP(6), review_status = 'approved'");
-        expect(str_contains($school->send('/dashboard/school')[2], 'Your school is approved.'), 'School dashboard must read the approval record.');
+        expect(str_contains($school->send('/dashboard/school')[2], 'Your school is approved to submit vacancies'), 'School dashboard must read the approval record.');
 
         $parent = new AuthBrowser($base);
         verifiedParent($parent, $mail, 'parent@example.test', $password);
@@ -132,6 +133,7 @@ try {
             ->execute(['admin@example.test', password_hash($password, PASSWORD_DEFAULT)]);
         $adminId = (int) $db->lastInsertId();
         $db->prepare("INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE slug = 'admin'")->execute([$adminId]);
+        grantTestStaffRole($db, $adminId);
         $admin = new AuthBrowser($base);
         redirectIs($admin->submit('/login', ['email' => 'admin@example.test', 'password' => $password]), '/dashboard/admin');
         expect($admin->send('/dashboard/admin')[0] === 200, 'An assigned admin role must allow its dashboard.');

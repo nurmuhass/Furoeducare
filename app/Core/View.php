@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Furoeducare\Core;
 
+use Closure;
+
 final class View
 {
+    private ?Closure $shared = null;
+
     public function __construct(private readonly string $layout, private readonly string $appName)
     {
     }
@@ -13,7 +17,15 @@ final class View
     public function render(string $template, string $title, array $data = []): string
     {
         $context = ['title' => $title, 'appName' => $this->appName] + $data;
+        if ($this->shared !== null) {
+            $context = array_replace($context, ($this->shared)($context));
+        }
         return $this->capture($this->layout, ['content' => $this->capture($template, $context)] + $context);
+    }
+
+    public function share(Closure $provider): void
+    {
+        $this->shared = $provider;
     }
 
     private function capture(string $template, array $data): string

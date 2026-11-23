@@ -58,14 +58,14 @@ abstract class ProfileRegistration
 
         $hash = password_hash($request->form('password'), PASSWORD_DEFAULT);
         $started = hrtime(true);
-        $token = $this->accounts->register($email) ?? $this->accounts->requestLink(EmailToken::Verification, $email);
+        $enqueue = fn (string $token) => $this->mailer->deliver(EmailToken::Verification, $email, $token, flow: $this->role,
+            teacherRequestReference: $this->session->teacherRequestReference());
+        $token = $this->accounts->register($email, $enqueue) ?? $this->accounts->requestLink(EmailToken::Verification, $email, $enqueue);
         if ($token !== null) {
             $this->session->rememberRegistration($this->role, $token, [
                 'values' => $values, 'password_hash' => $hash,
                 'terms_version' => LegalNotice::TERMS, 'privacy_version' => LegalNotice::PRIVACY,
             ]);
-            $this->mailer->deliver(EmailToken::Verification, $email, $token, flow: $this->role,
-                teacherRequestReference: $this->session->teacherRequestReference());
         }
         $remaining = 300_000 - (int) ((hrtime(true) - $started) / 1000);
         if ($remaining > 0) {

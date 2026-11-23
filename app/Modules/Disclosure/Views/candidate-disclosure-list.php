@@ -1,3 +1,7 @@
+<?php
+$canDisclose = ($data['adminCanDisclose'] ?? true) && (!array_key_exists('adminPermissions', $data)
+    || in_array('cv_access.manage', $data['adminPermissions'], true));
+?>
 <?php if ($data['disclosures'] === []): ?>
     <p>There are no disclosure requests for this case.</p>
 <?php else: ?>
@@ -18,6 +22,7 @@
             ?>
             <li class="border-bottom py-3">
                 <h3 class="h5 mb-2"><?= $escape($scopeNames[$disclosure['scope']]) ?> · <?= $escape($disclosure['reference']) ?></h3>
+                <?php if (!$staff): ?><p><a href="/messages?new=1&amp;context_type=candidate_information&amp;context_id=<?= (int) $disclosure['id'] ?>">Message management about this information request</a></p><?php endif; ?>
                 <p class="mb-2">
                     <span class="status-badge"><?= $escape($status) ?></span>
                     <?php if ($expiresAt !== null): ?>
@@ -25,7 +30,7 @@
                     <?php endif; ?>
                 </p>
                 <?php if ($staff): ?>
-                    <?php if ($disclosure['status'] === 'pending' && $data['assignedToViewer']): ?>
+                    <?php if ($canDisclose && $disclosure['status'] === 'pending' && $data['assignedToViewer']): ?>
                         <a href="<?= $escape($casePath) ?>&amp;disclosure=<?= (int) $disclosure['id'] ?>#candidate-disclosure-review">
                             Review request
                         </a>
@@ -36,7 +41,7 @@
                     <?php if (($disclosure['evidence_reference'] ?? '') !== ''): ?>
                         <p class="text-break mb-2">Consent evidence <?= $escape($disclosure['evidence_reference']) ?></p>
                     <?php endif; ?>
-                    <?php if ($grantId > 0 && !$revoked && $data['assignedToViewer']): ?>
+                    <?php if ($canDisclose && $grantId > 0 && !$revoked && $data['assignedToViewer']): ?>
                         <form class="auth-form" method="post" action="<?= $escape($root) ?>">
                             <input type="hidden" name="_csrf" value="<?= $escape($data['csrf']) ?>">
                             <input type="hidden" name="id" value="<?= $caseId ?>">

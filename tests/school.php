@@ -10,6 +10,7 @@ use Furoeducare\Modules\Auth\LegalNotice;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 require __DIR__ . '/support/http.php';
+require_once __DIR__ . '/support/staff-fixtures.php';
 require __DIR__ . '/support/auth-browser.php';
 require __DIR__ . '/support/school-fixtures.php';
 
@@ -93,9 +94,10 @@ try {
         [$status, $headers, $body] = $school->send($dash);
         expect($status === 200 && ($headers['cache-control'] ?? '') === 'no-store' && str_contains($body, 'Pending approval'),
             'An email-verified school reaches the restricted overview.');
-        foreach ([$profile, $drafts, $dash . '?tab=notifications', $dash . '?tab=settings', '/find-teachers', '/digital-library', '/services'] as $path) {
+        foreach ([$profile, $drafts, $dash . '?tab=settings', '/notifications', '/find-teachers', '/digital-library', '/services'] as $path) {
             expect($school->send($path)[0] === 200, "Pending schools can use $path.");
         }
+        redirectIs($school->send($dash . '?tab=notifications'), '/notifications');
         redirectIs($anonymous->send($dash . '/shortlists'), '/login');
         schoolRecruitmentAccess($school, 403);
         echo "PASS school registration, email verification, pending access and restricted recruitment routes.\n";
@@ -152,6 +154,7 @@ try {
             ->execute(['admin@example.test', password_hash($password, PASSWORD_DEFAULT)]);
         $reviewer = (int) $db->lastInsertId();
         $db->prepare("INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE slug = 'admin'")->execute([$reviewer]);
+        grantTestStaffRole($db, $reviewer);
         $admin = new AuthBrowser($base);
         redirectIs($admin->submit('/login', ['email' => 'admin@example.test', 'password' => $password]), '/dashboard/admin');
         expect(str_contains($admin->send('/dashboard/admin')[2], 'Review school accounts')
@@ -171,7 +174,8 @@ try {
         expect(str_contains($admin->send('/dashboard/admin/verification/corrections')[2], 'Green Valley School'), 'School corrections enter their own queue.');
         expect($admin->submit($review, schoolReviewFields($db, $id, 'approved', 'Premature approval'), $detail)[0] === 422,
             'A school must update its profile before approval from a correction request.');
-        expect(!str_contains($second->send($dash . '?tab=notifications')[2], 'Correct the office address'), 'Another school cannot see this decision.');
+        redirectIs($second->send($dash . '?tab=notifications'), '/notifications');
+        expect(!str_contains($second->send('/notifications')[2], 'Correct the office address'), 'Another school cannot see this decision.');
         $stale = schoolReviewFields($db, $id, 'approved', 'Stale review');
         redirectIs($school->submit($dash . '/profile', array_replace($fields, ['address' => '24 Fixture Road']), $profile), $profile);
         expect(str_contains($school->send($dash)[2], 'Pending approval'), 'Corrections return the updated profile to pending.');
@@ -204,7 +208,8 @@ try {
         expect((int) $db->query("SELECT COUNT(*) FROM audit_logs WHERE action = 'verification.school.review'")->fetchColumn() === 6
             && (int) $db->query("SELECT COUNT(*) FROM verification_notifications WHERE event = 'verification.school.review'")->fetchColumn() === 6,
             'Each successful school decision emits one audit record and notification.');
-        $updates = $school->send($dash . '?tab=notifications')[2];
+        redirectIs($school->send($dash . '?tab=notifications'), '/notifications');
+        $updates = $school->send('/notifications')[2];
         expect(str_contains($updates, 'School access restored.') && !str_contains($updates, 'admin@example.test'),
             'Schools can read their own decisions without staff account identifiers.');
         echo "PASS administrator-only decisions, stale reviews, correction and approval gates, and suspension revocation.\n";

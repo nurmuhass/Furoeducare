@@ -1,5 +1,11 @@
 # CV extraction and review
 
+## Document content policy — 23 November 2026
+
+Uploads, extraction and original downloads reject active/embedded/external-action PDF features, encryption and opaque object streams, including escaped PDF names. Some legitimate modern PDFs therefore require re-export as a plain text PDF, DOCX or manual onboarding. DOCX validation covers the whole ZIP package and XML/relationships with bounded expansion, rejecting macros, embedded objects, external templates, traversal, links and DTD/entities. Ordinary web/email hyperlinks are allowed. These structural checks are not antivirus or a complete sanitizer.
+
+Previously stored PDF/DOCX originals undergo the same policy before download; valid originals stay byte-for-byte unchanged. The extraction child process is not an OS sandbox. See [security review limitations](SECURITY_REVIEW.md#compatibility-and-document-processing-limits).
+
 Teachers can upload text-based PDF or DOCX CVs up to 5 MiB under **CV and Documents**. The upload checks the extension, detected MIME type, size and file structure. The original stays in private teacher storage under a random key. Each newly uploaded CV gets one extraction job in the same transaction as its metadata. Teachers can queue an older CV from the documents page.
 
 ## Running the worker

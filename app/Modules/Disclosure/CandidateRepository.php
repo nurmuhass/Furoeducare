@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Furoeducare\Modules\Disclosure;
 
+use Furoeducare\Modules\Admin\StaffAccess;
+
 use Closure;
 use DomainException;
 use Furoeducare\Core\Database;
 use Furoeducare\Modules\Auth\Role;
+use Furoeducare\Modules\Email\EmailEvents;
 use Furoeducare\Modules\Directory\PublicDirectory;
 use Furoeducare\Modules\Parent\ParentRepository;
 use Furoeducare\Modules\School\SchoolPolicy;
@@ -121,7 +124,8 @@ final class CandidateRepository
                 selected_reference, purpose, requirements) VALUES (?, 'school', 'recruitment', ?, ?, ?, ?, ?)")
                 ->execute([$owner, $vacancy, $teacherId, $ref, $purpose, $requirements]);
             $id = (int) $db->lastInsertId();
-            VerificationEvents::audit($db, $owner, 'candidate.submitted', ['case_id' => $id]);
+            VerificationEvents::record($db, $owner, $owner, 'candidate.submitted', ['case_id' => $id, 'event_key' => 'candidate:submitted:' . $id], 'Candidate request submitted', 'Your candidate request has been submitted. Open Candidate Requests to review its progress.');
+            EmailEvents::staff($db, 'candidate:' . $id, 'new_teacher_request', '/dashboard/admin/candidate-requests?id=' . $id);
             return $id;
         });
     }
@@ -144,7 +148,8 @@ final class CandidateRepository
             $this->ownVacancy($owner, $vacancy);
             $db->prepare("UPDATE candidate_requests SET vacancy_id = ?, purpose = ?, requirements = ?, status = 'submitted' WHERE id = ?")
                 ->execute([$vacancy, $purpose === '' ? $case['purpose'] : $purpose, $requirements === '' ? $case['requirements'] : $requirements, $id]);
-            VerificationEvents::audit($db, $owner, 'candidate.vacancy_linked', ['case_id' => $id, 'vacancy_id' => $vacancy]);
+            VerificationEvents::record($db, $owner, $owner, 'candidate.vacancy_linked', ['case_id' => $id, 'vacancy_id' => $vacancy, 'event_key' => 'candidate:linked:' . $id], 'Candidate request linked', 'Your candidate request is ready for review. Open Candidate Requests to review its progress.');
+            EmailEvents::staff($db, 'candidate:' . $id, 'new_teacher_request', '/dashboard/admin/candidate-requests?id=' . $id);
         });
     }
 
@@ -180,6 +185,7 @@ final class CandidateRepository
     public function manage(int $admin, int $id, string $action, ?string $ref): void
     {
         Database::transaction(($this->database)(), function (PDO $db) use ($admin, $id, $action, $ref): void {
+            StaffAccess::requireIn($db, $admin, 'candidates.manage', true);
             $this->requireAdmin($admin, lock: true);
             $case = $this->lockCase($id);
             if (in_array($case['status'], ['draft', 'closed'], true)) {
@@ -187,6 +193,9 @@ final class CandidateRepository
             }
             if ($action === 'claim') {
                 $this->requireContext($case);
+                if ((int) ($case['assigned_admin_id'] ?? 0) === $admin && $case['status'] !== 'submitted') {
+                    return;
+                }
                 $db->prepare("UPDATE candidate_requests SET assigned_admin_id = ?,
                     status = IF(status = 'submitted', 'under_review', status) WHERE id = ?")->execute([$admin, $id]);
             } else {
@@ -209,6 +218,11 @@ final class CandidateRepository
             }
             VerificationEvents::audit($db, $admin, 'candidate.' . $action, ['case_id' => $id, 'reference' => $ref]
                 + ($action === 'claim' ? ['previous_assignee' => $case['assigned_admin_id']] : []));
+            if (in_array($action, ['claim', 'publish', 'close'], true)) {
+                VerificationEvents::record($db, $admin, (int) $case['requester_id'], 'candidate.' . $action,
+                    ['case_id' => $id, 'event_key' => 'candidate:audit:' . (int) $db->lastInsertId()],
+                    'Candidate request update', 'Your candidate request has an update. Open Candidate Requests to review its progress.');
+            }
         });
     }
 

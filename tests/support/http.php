@@ -11,6 +11,10 @@ function expect(bool $condition, string $message): void
 
 function serve(string $root, array $environment, string $serverLog, callable $verify): void
 {
+    // Tests use the real background mail worker with one ephemeral key shared by its PHP processes.
+    if (!is_string(getenv('MAIL_ENCRYPTION_KEY')) || getenv('MAIL_ENCRYPTION_KEY') === '') {
+        putenv('MAIL_ENCRYPTION_KEY=' . base64_encode(random_bytes(32)));
+    }
     $socket = stream_socket_server('tcp://127.0.0.1:0');
     expect($socket !== false, 'Cannot reserve a loopback port.');
     $address = stream_socket_get_name($socket, false);

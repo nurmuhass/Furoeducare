@@ -167,6 +167,25 @@ try {
         $personalPage = $dash . '?tab=profile&section=personal';
         foreach (DashboardPage::cases() as $tab) {
             [$tabStatus, , $tabBody] = $teacher->send($tab->url());
+            if ($tab === DashboardPage::Messages) {
+                expect($tabStatus === 200 && str_contains($tabBody, 'My conversations'),
+                    'Messages opens the private management conversations.');
+                continue;
+            }
+            if ($tab === DashboardPage::Library) {
+                expect($tabStatus === 200 && str_contains($tabBody, '<h1>Digital library</h1>')
+                    && str_contains($tabBody, 'href="/digital-library/saved"')
+                    && str_contains($tabBody, 'href="/digital-library/history"'),
+                    'Digital Library opens the shared catalogue and account resource links.');
+                continue;
+            }
+            if ($tab === DashboardPage::Notifications) {
+                expect($tab->url() === '/notifications' && $tabStatus === 200
+                    && str_contains($tabBody, '<h1>Notifications</h1>')
+                    && str_contains($tabBody, 'Notification settings'),
+                    'Notifications opens the shared account inbox.');
+                continue;
+            }
             expect($tabStatus === 200 && str_contains($tabBody, '<h1>' . $tab->label() . '</h1>')
                 && str_contains($tabBody, 'aria-label="Teacher dashboard navigation"'), 'Every dashboard tab must load with its heading.');
         }
@@ -175,11 +194,16 @@ try {
             'The recruitment tabs link to the job board and show a private empty application list.');
         expect(str_contains($teacher->send(DashboardPage::SavedJobs->url())[2], 'No saved jobs on this page.'),
             'The new teacher sees an empty Saved Jobs tab.');
-        foreach ([DashboardPage::Placements, DashboardPage::Library, DashboardPage::Messages] as $tab) {
-            expect(str_contains($teacher->send($tab->url())[2], 'Not available yet'), 'Pending features must have informational pages.');
-        }
-        expect(str_contains($teacher->send(DashboardPage::Notifications->url())[2], 'No verification updates yet.'),
-            'An account without verification events sees the notifications empty state.');
+        redirectIs($teacher->send($dash . '?tab=library'), '/digital-library');
+        expect(str_contains($body, 'href="/digital-library"')
+            && str_contains($body, 'href="/digital-library/saved"')
+            && str_contains($body, 'href="/digital-library/history"'),
+            'Teacher navigation opens the shared library, saved resources and download history.');
+        expect(str_contains($teacher->send(DashboardPage::Placements->url())[2], 'View my placements'),
+            'Placement updates link to the managed placement workspace.');
+        redirectIs($teacher->send($dash . '?tab=notifications'), '/notifications');
+        expect(str_contains($teacher->send(DashboardPage::Notifications->url())[2], 'Email verified'),
+            'The new teacher sees the account activation update in the central inbox.');
         foreach (['Total applications', 'Active applications', 'Interview invitations', 'Placement updates', 'Recent notifications'] as $metric) {
             expect(str_contains($body, $metric), "Overview must include $metric.");
         }

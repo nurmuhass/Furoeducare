@@ -1,43 +1,48 @@
 (() => {
     const storageKey = 'furoeducare-theme';
-    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const root = document.documentElement;
+    const account = root.getAttribute('data-account-appearance');
+    const authenticated = account !== null;
     const themes = ['system', 'light', 'dark'];
-    let selection = 'system';
-
-    try {
-        const saved = window.localStorage.getItem(storageKey);
-        if (themes.includes(saved)) {
-            selection = saved;
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+    let selection = themes.includes(account) ? account : 'system';
+    if (!authenticated) {
+        try {
+            const saved = window.localStorage.getItem(storageKey);
+            if (themes.includes(saved)) selection = saved;
+        } catch {
+            // Storage may be disabled; the current page still works.
         }
-    } catch {
-        // The system preference is available without persistent storage.
     }
-
     const applyTheme = () => {
-        const theme = selection === 'system'
-            ? (systemTheme.matches ? 'dark' : 'light')
-            : selection;
-        document.documentElement.setAttribute('data-bs-theme', theme);
+        root.setAttribute('data-bs-theme', selection === 'system' ? (systemTheme.matches ? 'dark' : 'light') : selection);
+        root.setAttribute('data-theme-preference', selection);
     };
-
     applyTheme();
     systemTheme.addEventListener('change', applyTheme);
-
     document.addEventListener('DOMContentLoaded', () => {
-        const control = document.getElementById('theme');
-        if (!control) {
-            return;
-        }
-        control.value = selection;
-        control.addEventListener('change', () => {
-            selection = control.value;
-            applyTheme();
-            try {
-                window.localStorage.setItem(storageKey, selection);
-            } catch {
-                // The selection still applies to the current page.
-            }
+        const pickers = Array.from(document.querySelectorAll('[data-theme-picker]'));
+        pickers.forEach(picker => {
+            const control = picker.querySelector('select[name="appearance"]');
+            if (!control) return;
+            control.value = selection;
+            picker.removeAttribute('hidden');
+            control.addEventListener('change', () => {
+                if (!themes.includes(control.value)) return;
+                selection = control.value;
+                applyTheme();
+                pickers.forEach(other => {
+                    const select = other.querySelector('select[name="appearance"]');
+                    if (select) select.value = selection;
+                });
+                if (authenticated && picker.matches('form')) {
+                    picker.requestSubmit();
+                } else if (!authenticated) {
+                    try { window.localStorage.setItem(storageKey, selection); } catch {
+                        // Keep the in-memory choice if storage is unavailable.
+                    }
+                }
+            });
         });
-        control.closest('[data-theme-picker]')?.removeAttribute('hidden');
     });
 })();

@@ -1,0 +1,71 @@
+.admin-workspace{display:flex;min-height:100vh;background:var(--bs-tertiary-bg);color:var(--bs-body-color)}.admin-sidebar{width:248px;flex-shrink:0;background:var(--bs-body-bg);border-right:1px solid var(--bs-border-color);padding:26px 18px;position:sticky;top:0;height:100vh;overflow:auto}.admin-brand{font-size:1.1rem;margin-bottom:26px}.admin-brand small{display:block;font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;margin-top:3px;color:var(--bs-secondary-color)}.admin-nav-group{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--bs-secondary-color);margin:22px 12px 8px}.admin-nav-link{display:block;color:var(--bs-body-color);text-decoration:none;padding:9px 12px;border-radius:8px;font-size:.9rem}.admin-nav-link:hover,.admin-nav-link[aria-current=page]{background:var(--bs-primary-bg-subtle);color:var(--bs-primary-text-emphasis)}.admin-nav-link[aria-current=page]{font-weight:700}.admin-sidebar-end{border-top:1px solid var(--bs-border-color);margin-top:25px;padding:20px 10px;font-size:.85rem}.admin-body{flex:1;min-width:0}.admin-topbar{min-height:82px;padding:18px 30px;display:flex;gap:20px;align-items:center;background:var(--bs-body-bg);border-bottom:1px solid var(--bs-border-color)}.admin-global-search{display:flex;gap:8px;max-width:430px;flex:1}.admin-account{margin-left:auto;display:flex;align-items:center;gap:16px}.admin-role-label{max-width:180px}.admin-main{min-height:75vh}.admin-main .site-shell{width:auto;max-width:1400px;margin:auto;padding-left:30px;padding-right:30px}.admin-main .page-band{padding:32px 0 22px;background:transparent}.admin-main .page-band h1{font-size:2rem}.admin-main .section-space{padding-top:12px;padding-bottom:32px}.admin-panel{padding:24px;background:var(--bs-body-bg);border:1px solid var(--bs-border-color);border-radius:12px;margin-bottom:24px}.admin-metric{display:block;padding:22px;background:var(--bs-body-bg);border:1px solid var(--bs-border-color);border-radius:12px;height:100%;text-decoration:none;color:var(--bs-body-color)}.admin-metric strong{display:block;font-size:2rem;margin:10px 0}.admin-metric span{font-size:.85rem;color:var(--bs-secondary-color)}.admin-footer{padding:20px 30px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;font-size:.8rem;color:var(--bs-secondary-color)}.admin-operational-notice{padding:14px 30px;background:var(--bs-info-bg-subtle);color:var(--bs-info-text-emphasis)}.admin-table{font-size:.9rem}.admin-table th{white-space:nowrap}.admin-table td{vertical-align:middle;overflow-wrap:anywhere}.admin-permissions{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.admin-main .form-panel{background:var(--bs-body-bg);color:var(--bs-body-color)}.admin-menu{display:none}.admin-empty{padding:32px;text-align:center;color:var(--bs-secondary-color)}.admin-status{display:inline-block;padding:4px 9px;border-radius:20px;background:var(--bs-secondary-bg);font-size:.78rem}.admin-workspace :focus-visible{outline:3px solid var(--bs-primary);outline-offset:3px}@media(max-width:1100px){.admin-role-label{display:none}.admin-topbar{padding:16px 20px}}@media(max-width:800px){.admin-workspace{display:block}.admin-sidebar{position:static;width:auto;height:auto;max-height:none;border-right:0;border-bottom:1px solid var(--bs-border-color)}.admin-workspace.admin-enhanced .admin-sidebar{display:none}.admin-workspace.admin-menu-open .admin-sidebar{display:block}.admin-menu{display:inline-block}.admin-topbar{flex-wrap:wrap;gap:12px}.admin-global-search{order:3;max-width:none;flex-basis:100%}.admin-main .site-shell{padding-left:18px;padding-right:18px}.admin-account{gap:8px}.admin-footer{padding:18px}.admin-main .page-band h1{font-size:1.6rem}}
+.admin-readonly-notice{margin:24px 30px 0;padding:16px 20px;border:1px solid var(--bs-info-border-subtle);border-radius:10px;background:var(--bs-info-bg-subtle);color:var(--bs-info-text-emphasis);font-size:.9rem}.admin-main[data-admin-readonly] form[method="post" i]{display:none}@media(max-width:800px){.admin-readonly-notice{margin:18px 18px 0}}
+
+/* Keep intrinsic form/table widths inside the workspace at narrow viewports. */
+.admin-workspace,
+.admin-topbar,
+.admin-main,
+.admin-main .site-shell,
+.admin-main .row > *,
+.admin-panel,
+.admin-metric {
+    min-width: 0;
+}
+.admin-global-search {
+    min-width: 0;
+}
+.admin-global-search .form-control {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+}
+.admin-global-search button,
+.admin-menu {
+    flex-shrink: 0;
+}
+.admin-account {
+    min-width: 0;
+}
+.admin-operational-notice,
+.admin-readonly-notice,
+.admin-metric,
+.admin-footer,
+.admin-main h1,
+.admin-main p {
+    overflow-wrap: anywhere;
+}
+.admin-permissions {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+@media (max-width: 800px) {
+    .admin-body,
+    .admin-topbar,
+    .admin-main {
+        width: 100%;
+    }
+    .admin-global-search {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+    .admin-operational-notice {
+        padding: 14px 18px;
+    }
+}
+@media (max-width: 575px) {
+    .admin-topbar {
+        padding: 14px 18px;
+    }
+    .admin-account {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        max-width: calc(100% - 90px);
+    }
+    .admin-panel {
+        padding: 18px;
+    }
+    .admin-footer > * {
+        min-width: 0;
+        max-width: 100%;
+    }
+}
+.admin-close-menu{display:none}@media(max-width:800px){.admin-workspace.admin-enhanced .admin-close-menu{display:block;margin:0 0 18px auto}}

@@ -10,6 +10,7 @@ use Furoeducare\Modules\Auth\LegalNotice;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 require __DIR__ . '/support/http.php';
+require_once __DIR__ . '/support/staff-fixtures.php';
 require __DIR__ . '/support/auth-browser.php';
 
 $root = dirname(__DIR__);
@@ -89,11 +90,18 @@ try {
         echo "PASS adult-only account registration, server validation, email verification, session rotation, and pre-verification restrictions.\n";
 
         foreach (['overview', 'find-teachers', 'request-teacher', 'requests', 'recommended', 'saved',
-            'arrangements', 'library', 'messages', 'notifications', 'settings'] as $tab) {
+            'arrangements', 'library', 'settings'] as $tab) {
             [$code, $headers, $page] = $parent->send($dash . '?tab=' . $tab);
             expect($code === 200 && ($headers['cache-control'] ?? '') === 'no-store'
                 && str_contains($page, 'Parent dashboard navigation'), "Parent dashboard tab $tab is available.");
         }
+        redirectIs($parent->send($dash . '?tab=notifications'), '/notifications');
+        [$code, $headers, $page] = $parent->send('/notifications');
+        expect($code === 200 && ($headers['cache-control'] ?? '') === 'private, no-store'
+            && str_contains($page, '<h1>Notifications</h1>') && str_contains($page, 'Email verified'),
+            'The parent notification entry opens the private central feed with account updates.');
+        redirectIs($parent->send($dash . '?tab=messages'), '/messages');
+        expect($parent->send('/messages')[0] === 200, 'The parent messages entry opens the managed conversations.');
         expect(str_contains($parent->send($dash . '?tab=find-teachers')[2], 'href="/find-teachers"')
             && str_contains($parent->send($dash . '?tab=library')[2], 'href="/digital-library"')
             && $parent->send('/find-teachers')[0] === 200, 'Link to public teacher and library pages.');
@@ -169,7 +177,9 @@ try {
         $seed = $db->prepare('INSERT INTO users (email, password_hash, email_verified_at) VALUES (?, ?, CURRENT_TIMESTAMP(6))');
         $grant = $db->prepare('INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE slug = ?');
         $seed->execute(['admin@example.test', password_hash($password, PASSWORD_DEFAULT)]);
-        $grant->execute([(int) $db->lastInsertId(), 'admin']);
+        $adminId = (int) $db->lastInsertId();
+        $grant->execute([$adminId, 'admin']);
+        grantTestStaffRole($db, $adminId);
         $admin = new AuthBrowser($base);
         redirectIs($admin->submit('/login', ['email' => 'admin@example.test', 'password' => $password]), '/dashboard/admin');
         expect($admin->send($detail)[0] === 403 && $admin->submit($submitAction, ['id' => $id], '/dashboard/admin')[0] === 403,

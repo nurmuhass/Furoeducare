@@ -31,6 +31,7 @@ $selected = $data['selected'];
                 <?php require __DIR__ . '/editor.php'; ?>
             <?php else: ?>
                 <h2 class="text-break"><?= $escape($vacancy['fields']['title'] ?: 'Untitled draft') ?></h2>
+                <?php if (!$staff): ?><p><a href="/messages?new=1&amp;context_type=vacancy&amp;context_id=<?= (int) $vacancy['id'] ?>">Message management about this vacancy</a></p><?php endif; ?>
                 <p><span class="status-badge"><?= $escape($status->label()) ?></span></p>
                 <?php if ($staff): ?><p class="text-break"><?= $escape($vacancy['school_name']) ?></p><?php endif; ?>
                 <?php if ($status === VacancyStatus::Published && $vacancy['application_deadline'] < VacancyInput::today()): ?>

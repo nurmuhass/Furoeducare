@@ -110,6 +110,10 @@ final class VerificationRepository
             return 'forbidden';
         }
         return Database::transaction(($this->database)(), function (PDO $db) use ($staff, $id, $revision, $decision, $reason, $checks): string {
+            if ($decision === TeacherStatus::Suspended) {
+                \Furoeducare\Modules\Admin\StaffAccess::lockRoles($db);
+            }
+            \Furoeducare\Modules\Admin\StaffAccess::requireIn($db, $staff, 'verification.manage', true);
             $account = $this->account($id, lock: true);
             $profile = $this->profiles->profile($id, lock: true);
             if ($account === null || $profile === null) {
@@ -162,6 +166,7 @@ final class VerificationRepository
             return 'transition';
         }
         return Database::transaction(($this->database)(), function (PDO $db) use ($staff, $teacher, $id, $decision, $reason): string {
+            \Furoeducare\Modules\Admin\StaffAccess::requireIn($db, $staff, 'verification.manage', true);
             if ($this->account($teacher, lock: true) === null) {
                 return 'missing';
             }

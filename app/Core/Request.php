@@ -6,6 +6,11 @@ namespace Furoeducare\Core;
 
 final class Request
 {
+    public function formKeys(): array
+    {
+        return array_keys($this->post);
+    }
+
     private function __construct(
         public readonly string $method,
         public readonly string $path,
@@ -57,5 +62,11 @@ final class Request
     {
         $value = $this->query[$key] ?? null;
         return is_string($value) ? $value : '';
+    }
+
+    /** Optional filters may be absent, but arrays/null must not become default strings. */
+    public function queryIsString(string $key): bool
+    {
+        return !array_key_exists($key, $this->query) || is_string($this->query[$key]);
     }
 }

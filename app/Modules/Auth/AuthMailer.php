@@ -4,63 +4,61 @@ declare(strict_types=1);
 
 namespace Furoeducare\Modules\Auth;
 
+use Closure;
 use Furoeducare\Core\Config;
+use Furoeducare\Core\Database;
+use Furoeducare\Modules\Email\MailConfig;
+use Furoeducare\Modules\Email\MailCrypto;
+use Furoeducare\Modules\Email\Outbox;
+use PDO;
+use RuntimeException;
+use Throwable;
 
 final class AuthMailer
 {
-    public function __construct(private readonly Config $config, private readonly string $directory)
+    public function __construct(private readonly Config $config, private readonly Closure $database)
     {
     }
 
     public function ready(): bool
     {
-        $origin = parse_url($this->config->baseUrl);
-        if (!is_array($origin) || !isset($origin['host'], $origin['scheme'])
-            || filter_var($this->config->baseUrl, FILTER_VALIDATE_URL) === false
-            || isset($origin['user']) || isset($origin['pass']) || isset($origin['query']) || isset($origin['fragment'])
-            || !in_array($origin['path'] ?? '', ['', '/'], true)) {
+        try {
+            (new MailConfig($this->config))->validate();
+            MailCrypto::key($this->config->mailOptions['encryption_key']);
+            return true;
+        } catch (Throwable) {
             return false;
         }
-
-        if ($this->config->environment === 'development') {
-            return in_array($origin['scheme'], ['http', 'https'], true);
-        }
-        return $origin['scheme'] === 'https' && filter_var($this->config->mailFrom, FILTER_VALIDATE_EMAIL) !== false;
     }
 
+    /** Enqueue inside token issuance's transaction. Network delivery belongs to the CLI worker. */
     public function deliver(
-        EmailToken $purpose,
-        string $email,
-        #[\SensitiveParameter] string $token,
-        ?Role $flow = null,
-        ?string $teacherRequestReference = null,
+        EmailToken $purpose, string $email, #[\SensitiveParameter] string $token,
+        ?Role $flow = null, ?string $teacherRequestReference = null,
     ): void {
-        $path = $purpose === EmailToken::Verification && $flow !== null ? $flow->verificationPath() : $purpose->path();
-        $url = rtrim($this->config->baseUrl, '/') . $path . '?token=' . $token;
-        $reference = AuthInput::teacherRequestReference($teacherRequestReference);
-        if ($purpose === EmailToken::Verification && $flow !== Role::Teacher && $reference !== null) {
-            $url .= '&ref=' . $reference;
+        if (!AuthInput::validToken($token)) {
+            throw new RuntimeException('Cannot queue an invalid account token.');
         }
-        $subject = $purpose === EmailToken::Verification ? 'Verify your Furoeducare email' : 'Reset your Furoeducare password';
-        $message = $subject . "\r\n\r\n" . $url . "\r\n\r\n"
-            . "If you did not request this email, you can ignore it.\r\n";
-
-        $sent = $this->config->environment === 'development'
-            ? $this->spool($email, $subject, $message)
-            : @mail($email, $subject, $message, ['From' => $this->config->mailFrom]);
-
-        if (!$sent) {
-            error_log('Furoeducare authentication email could not be handed to its transport.');
+        $db = ($this->database)();
+        $enqueue = function (PDO $db) use ($purpose, $email, $token, $flow, $teacherRequestReference): void {
+            $hash = hash('sha256', $token, true);
+            $query = $db->prepare('SELECT t.user_id, t.expires_at FROM ' . $purpose->value . ' t JOIN users u ON u.id = t.user_id
+                WHERE t.token_hash = ? AND u.email = ? AND t.consumed_at IS NULL AND t.expires_at > UTC_TIMESTAMP(6)');
+            $query->execute([$hash, $email]);
+            $row = $query->fetch();
+            if ($row === false) {
+                throw new RuntimeException('Cannot queue an inactive account token.');
+            }
+            $verification = $purpose === EmailToken::Verification;
+            $payload = $verification ? ['flow' => $flow?->value, 'ref' => AuthInput::teacherRequestReference($teacherRequestReference)] : [];
+            Outbox::enqueue($db, 'auth:' . $purpose->value . ':' . bin2hex($hash), (int) $row['user_id'],
+                $verification ? 'account_verification' : 'password_reset', $payload, $email,
+                MailCrypto::encrypt($token, $this->config->mailOptions['encryption_key']), $hash, $row['expires_at']);
+        };
+        if ($db->inTransaction()) {
+            $enqueue($db);
+        } else {
+            Database::transaction($db, $enqueue);
         }
-    }
-
-    private function spool(string $email, string $subject, string $message): bool
-    {
-        if (!is_dir($this->directory) && !@mkdir($this->directory, 0700, true) && !is_dir($this->directory)) {
-            return false;
-        }
-        $path = $this->directory . '/' . bin2hex(random_bytes(16)) . '.eml';
-        $mail = "To: $email\r\nSubject: $subject\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n" . $message;
-        return @file_put_contents($path, $mail, LOCK_EX) === strlen($mail);
     }
 }

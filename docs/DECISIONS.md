@@ -1,5 +1,90 @@
 # Furoeducare Decisions
 
+## Security review — 23 November 2026
+
+| Decision | Reason |
+| --- | --- |
+| Apply document content policy at upload, extraction and original download. | Fixes also cover older stored PDF/DOCX files; valid originals remain byte-identical. |
+| Refuse active/opaque PDF features and dangerous DOCX package parts conservatively. | Existing superficial structure checks accepted active content. Legitimate object-stream/encrypted PDFs can now require plain-PDF export, DOCX or manual entry; this limitation is disclosed. |
+| Share CSP/frame/referrer headers with early bootstrap errors and reject public session directories. | Failure/configuration paths need the same containment as ordinary pages. |
+| Record AV/CDR, OS sandboxing, comprehensive retention and production checks as open work. | No malware scanner, legal retention schedule or deployment evidence is available; inventing a policy or claiming these controls would be misleading. |
+
+Evidence, severity, changed files and exact follow-up are in [SECURITY_REVIEW.md](SECURITY_REVIEW.md). The review does not establish that the application is secure.
+
+## Operational reporting and monetisation readiness
+
+- Replace the report page's raw status-table summaries with defined operational measures. Retain the prior internal read-model method for compatibility, but route the page/export through fresh transactionally checked aggregate queries. State metrics identify their registration/publication cohort; event metrics use submission/confirmation/download dates. Dates are inclusive WAT, with explicit all-time selection.
+- Require existing `reports.view` plus each data module's read permission for both HTML and CSV. Omit inaccessible datasets; export only fixed aggregate fields, never request descriptions, account contacts or documents. Audit successful GET export requests, not HEAD or presumed file consumption.
+- Count active vacancies using public school/deadline eligibility, retain successful confirmations after placement closure, exclude private drafts, and respect message retention boundaries. Keep current-state and historical-event meanings visible.
+- Keep initial services free. Future billing/provider/catalogue entities and interfaces are documentation only; no tables, checkout, payment switch or gateway code is installed. Any later charging requires a new approved offer/version, explicit rollout and preservation of existing free requests/entitlements.
+
+## Account settings security and appearance
+
+- Use local storage for guests and MySQL for account preferences. Account choice overrides guest state; resolve it before styles rather than fetching preferences after paint. Native forms preserve no-JavaScript explicit mode changes and return only to validated internal pages.
+- Require current-password reauthentication for settings password, email, contact and deactivation actions. Bind security mutations to session auth_version under user locks; rotate the current session after password/email changes and invalidate other sessions/security links.
+- Keep the old sign-in email until its owner confirms a short-lived hashed challenge sent to the proposed address. Require same-account authentication, CSRF and current password at confirmation. Recheck database uniqueness at commit and live challenge scope in the mail worker; never put plaintext tokens in queue metadata/audit logs.
+- Preserve existing role profile and publication/review policies. Do not create new school accounts from settings or self-publish teachers. Deactivation requests enter existing authorised privacy review, retain cancellation/history and never bypass last-active-Super-Admin protection. Optional notification channels retain their preferences; required verification mail is independent.
+
+## Dashboard consistency review
+
+- Use one shared dashboard shell and role navigation policy, retaining existing module panels and staff route/service permission checks. Public browsing remains public; signed-in library/directory/service pages can retain dashboard context.
+- Remember dashboard category only as a presentation preference, validating current account roles on each request. Existing candidate/directory owner-category selection overrides presentation on multi-role workflows, including direct links and errors.
+- Retain server-rendered data and ordinary forms. Loading feedback reflects actual submission/read-receipt requests; do not manufacture delays, sample metrics or asynchronous activity. Preserve clicked submit-button values and private file upload/download behavior.
+- Use native accessible dialogs with confirmation fallback and safe no-JavaScript forms. Menu interactions manage focus/background access and recover focus across breakpoints. Avoid high-risk bulk actions and new backend workflows.
+
+## Administrative workspace and permissions
+
+- Retain the coarse `admin` account marker and add explicit staff roles/capabilities. No new administrator receives automatic management permissions. Migrate only the oldest active verified legacy administrator to Super Admin; provide a trusted one-time local bootstrap.
+- Protect all built-in role definitions. Custom roles support other combinations, with current-permission delegation limits and no self-assignment/role editing. Staff and role changes invalidate affected sessions.
+- Guard every registered management route, deny unknown management mappings, separate read/manage and private document/CV permissions, and repeat permission checks inside mutation transactions.
+- Serialise role/security changes on the Super Admin role row and require a remaining active verified Super Admin. Keep account restoration independent of professional verification and its suspension claims.
+- Reuse existing workflow controllers inside a shared shell. Add actual scoped reads/search/reports, individual reviewed actions, safe read-only delivery monitoring and redacted audit browsing; avoid bulk sensitive decisions.
+- Restrict settings to operational notice/support fields used in the shell. Keep payment activation and secrets outside editable settings. Preserve historical message assignment but send new alerts to qualified staff after permission loss.
+
+## Central notifications
+
+- Extend the existing notification ledger and backfill old keys/categories instead of duplicating event records. Migration sends no historical email.
+- Retain hidden ledger entries for events suppressed by in-app preferences. They support deduplication without appearing in counts, links or feed pages. Preferences affect future delivery.
+- Store a stable source event key per recipient and a presentation fingerprint. Exact retries preserve existing read/channel state. Changed content under the same key conflicts and rolls back the transaction.
+- Read preferences and duplicate ledger rows using current locking reads. Keep email-only legacy saves restricted to their channel so another session's in-app changes survive.
+- Use typed internal paths and owner-protected open/read operations. Destination services continue to enforce their current access/release rules. GET opening does not mutate read state.
+- Mark-all uses a rendered ID boundary and leaves newer arrivals unread. Older/filtered pages label their bounded action explicitly.
+- Reuse six existing notification categories for independent channels. Essential authentication token emails stay outside optional dashboard preferences. New generic security/recruitment templates cover successful password changes and status updates.
+
+## Training and workshops
+
+- Represent packages as ordered module membership. Keep module, package and request statuses separate. A published package with an unpublished component is unavailable.
+- Preserve module metadata, submitted order and package title on the request. Later catalogue revisions do not change the requested programme.
+- Record approval during Discussion, preserving the requested status workflow. Require an active assignee before approval/scheduling and current school approval before submission/approval/scheduling. Reassignment before scheduling clears approval.
+- Support explicit reasoned rescheduling, completion after session end with an outcome, and irreversible terminal cancellation/completion. Capture decision details in history JSON as well as the current request fields.
+- Use school-scoped submission tokens and payload hashes so exact retries return the committed request and changed payloads conflict. Notifications and email outbox inserts share the request transaction.
+- Keep material descriptions public metadata only. No upload/download system or payment collection is added by this phase. Forms use WAT and supported bounds of 20 selected modules, ten future preferred dates and 1–10,000 participants.
+
+## Digital library
+
+- Start with PDF/EPUB materials and JPEG/PNG covers, using maintained PHP extensions already used by the project. Keep materials outside the public document root and serve both originals and covers through PHP.
+- Permit unconfirmed private drafts. Require a licence, private evidence reference and explicit current confirmation before publication. Every metadata or file edit withdraws publication and invalidates grants, simplifying content/rights review.
+- Use named-account, resource-revision grants with a maximum 365-day lifetime. A pending school's library access is independent of recruitment approval. Future paid material has no download or payment facility.
+- Retain a scrubbed resource tombstone when removing books to preserve ownership/history/statistics relationships. Unpublish/archive retain files; removal queues deletion. Grant history and catalogue/history lists use cursors.
+- Count authorised GET responses after successful integrity checks. HEAD, rejected requests and staff previews do not inflate library statistics. Guests have a nullable download owner and no fabricated account or tracked IP.
+
+## Transactional email
+
+- Use PHPMailer through SMTP for production and deterministic private MIME files for development. Both transports use the same templates and stable Message-ID.
+- Queue database events in the originating transaction and send through a separate CLI worker. Retry known transient failures for up to five total attempts. Mark ambiguous submissions and expired worker leases Uncertain so they can be reconciled with the provider before a resend.
+- Encrypt queued authentication tokens with a separate environment key. Keep token hashes for validity checks and clear the encrypted secret on terminal outcomes. Stop workers and drain or expire pending security mail before key replacement.
+- Keep optional preferences in six categories and recheck them at dispatch. Verification and reset remain essential to account access. Provider status records relay acceptance and the available provider transaction ID. Later inbox, bounce and complaint state is reviewed through the selected provider's operations.
+- Supply all fourteen requested templates. Training request processing remains a later module, so this phase provides its confirmation template and outbox API.
+- Managed interview scheduling emits its invitation from the placement event. Updating the companion application status does not enqueue a second interview invitation.
+
+## Managed messaging
+
+- Use one account holder per thread, with its account role recorded. Staff can create a thread for an eligible account. Conversations have no recipient picker for other account holders. New thread links are checked against the account holder's role and source ownership.
+- Allow verified pending schools to contact management. Messaging access uses active account and role checks. Recruitment approval continues to govern recruitment actions on the linked screens.
+- Make each administrator's unread state independent. Queue access lets staff triage and claim cases, while the assignee controls replies and lifecycle changes. Read receipts for user messages require a management reader other than the account holder.
+- Retain closed conversation content for 365 days by default, with an audited staff preservation hold. This initial product choice needs review alongside the platform's retention schedule. Expiry prevents application access and scheduled cleanup removes content. Metadata and audit records follow the wider retention policy.
+- Send in-app notifications through the existing notification service. Message bodies and subjects stay out of notifications and audit logs. Use progressive HTML forms and vanilla JavaScript for read acknowledgement.
+
 ## Managed recruitment and placements
 
 - Store one placement per employment application and one current tutoring placement per request. A rejected tutoring placement leaves the request available for another attempt. Confirmed or closed records retain their source reservation. Count successful applications against the approved vacancy's positions.

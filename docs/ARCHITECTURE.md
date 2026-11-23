@@ -1,5 +1,57 @@
 # Furoeducare Architecture
 
+## Security hardening — 23 November 2026
+
+`Core/SecurityHeaders` is applied by `Response` and the early bootstrap error handler. Local scripts, explicit frame/object/base/form restrictions, no-referrer and nosniff provide shared browser containment; file attachments retain a stricter sandbox policy. `AuthSession` rejects public storage paths before directory creation and resolves existing ancestors for containment.
+
+`CvContent` supplies bounded PDF-name and complete DOCX-package policy checks. Upload, extraction and stored-original delivery reuse them. Downloads validate the exact read snapshot; DOCX requires a bounded private temporary file, always closed. Teacher reads reject links/nonregular keys and verify opened-file identity and length; library reads retain hash checks. EPUB rejects archive symlinks. Extraction remains process-isolated rather than OS-sandboxed. See [findings and limitations](SECURITY_REVIEW.md); no new dependencies or migrations were introduced.
+
+## Operational reports and future monetisation boundary
+
+`OperationalReports` obtains fresh staff/module permissions under shared locks, then runs fixed aggregate subqueries within its own repeatable-read transaction. It exposes 16 measure projections with human date bases, count definitions and generation metadata. `ReportPeriod` validates inclusive Africa/Lagos dates and produces UTC half-open bounds. `ReportCsv` serialises only those aggregates with UTF-8/CSV escaping and formula-cell defence. `AdminController` exposes the existing report page and new guarded export route; export audits commit with the same snapshot and HEAD remains read-only. Query arrays are rejected before date defaults.
+
+The future catalogue/pricing/order/payment/billing/provider design lives only in documentation. No billing schema, runtime activation switch, provider implementation or charge dependency is added to current domain services. Existing free/restricted/reserved library access and distribution-rights controls remain authoritative. See [reports](OPERATIONAL_REPORTS.md) and [future design](MONETISATION_DESIGN.md).
+
+## Account settings and appearance
+
+The Settings module centralises validation, current-password reauthentication, version-bound security changes and session-owned controls. Email challenges store hashes, current address/version, proposed address, expiry and consumed/cancelled timestamps. The existing outbox encrypts token plaintext and has one narrow recipient exception for an active email-change challenge, checked again by its worker. Notification events remain independent from required challenge mail. Phone mutations reuse teacher evidence and school approval boundaries; linked deactivation requests use the existing privacy management queue and never automatically suspend accounts.
+
+The trusted View provider overrides static public sign-in flags with actual session context, supplying account appearance and CSRF before rendering. The synchronous head theme script resolves local guest or authoritative account choice before CSS. Reusable native appearance forms use fixed action/CSRF and safe internal return destinations. Authenticated responses send private/no-store headers. Appearance writes recheck account session version under a user-row lock. See [module details and verification](ACCOUNT_SETTINGS.md).
+
+## Shared dashboard UI
+
+`UI/DashboardNavigation` maps existing routes to grouped account-role menus and selects one active destination. The View shared provider validates current roles, stores a presentation-only session context, and honours server-selected workflow owner roles. It supplies `resources/views/dashboard/{shell,sidebar,header,confirmation}.php` for all four dashboards and authenticated shared services. Controllers and policies retain all authorisation responsibility. Public pages keep their existing public layout.
+
+`UI/Components` renders escaped metrics, statuses, tables, search/filter forms, error/empty states and cursor pagination. The existing form-fields partial supplies labelled inputs and field errors. Shared CSS/vanilla JavaScript provides menu focus containment and breakpoint recovery, native-dialog confirmation and real submission feedback without disabling named controls or interfering with download responses. Named form actions are read through attributes to avoid DOM property shadowing. Browser Back resets pending state; message read receipts expose pending and manual fallback states. No runtime dependency or migration is added.
+
+## Administration and staff permissions
+
+The Admin module supplies explicit role capabilities (`StaffPermissions`), fresh account/permission checks (`StaffAccess`), a fail-closed management route matrix (`StaffRoutes`/`StaffGate`), transactional protected mutations (`AdminManagement`) and safe scoped reads (`AdminReadModel`). Router guards execute before registered management handlers, including HEAD and effective form methods. Existing management controllers retain role checks and business safeguards; write services additionally recheck the relevant permission.
+
+Staff roles are independent of public account roles. Assignments and role edits update authentication versions. Sensitive decisions serialise on the protected Super Admin role row before locking users, preserving the last active administrator. Verification suspension shares that guard. The shared View provider supplies scoped navigation, current permissions, notifications and operational settings to one responsive shell used by both new and existing management pages. Audit/delivery projections exclude raw private context and email secrets. See [administration design and operation](ADMINISTRATION.md).
+
+## Central notifications
+
+The Notification module centralises event definitions (`NotificationCatalog`), atomic emission/deduplication (`NotificationEvents`), independent channel settings (`NotificationPreferences`), recipient eligibility (`NotificationAccess`) and owner-scoped feed/read operations (`NotificationInbox`). Existing verification events adapt to this service. Recruitment, account, messaging, training and placement services emit from their business transactions rather than controllers.
+
+The legacy-named `verification_notifications` table is the central ledger, extended with category, destination, event/payload hashes, delivery visibility and read time. Unique recipient/event keys enforce idempotency. Locking reads resolve current preferences and duplicate rows even when a caller has an earlier repeatable-read snapshot. The in-app preferences table is separate from existing email settings; the outbox retains independent optional email dispatch checks.
+
+An optional shared View provider injects unread count into authenticated headers. The teacher workspace includes the same bell partial. A single controller serves the central inbox, safe opening, read actions and preferences; former dashboard tabs redirect there. See [notification operations](NOTIFICATIONS.md).
+
+## Training and workshops
+
+The Training module separates metadata validation (`TrainingInput`), status policy (`TrainingWorkflow`), current database eligibility (`TrainingAccess`), catalogue/package persistence (`TrainingCatalogue`) and request transactions (`TrainingRequests`). The controller renders shared-layout views for public information, school intake/tracking and staff operations. Routes live in `config/training-routes.php`.
+
+Module edits withdraw publication. A package is public only when it and all members are published. Submission locks the school, checks current approval, serialises the school/token pair and stores immutable module snapshots with their submitted order. Staff decisions lock and compare a request revision, validate the transition and atomically persist history, audit, notification and outbox records. Scheduling requires an approved request, current school approval and an active staff assignee. Dates use WAT at the interface and UTC in persistence.
+
+The Messaging module validates `training` contexts against the owning school. The Email module accepts only an authenticated request path from training events, keeping requirement text and outcomes in the dashboard. See [training operations](TRAINING.md).
+
+## Digital library
+
+The Library module owns private material storage, catalogue metadata, tags, publication, account grants, saved records and download history. Public queries select an explicit field list. Shared routes serve public visitors and all account dashboards. `LibraryInput` validates metadata, `LibraryFiles` authenticates and structurally validates bounded uploads, `LibraryRepository` owns transactional data operations, and `LibraryService` authorises and serves files through PHP.
+
+Resource revisions prevent stale staff writes. Edits withdraw publication and revoke prior grants. File reads hold a shared resource lock through the current access decision, integrity-checked read and download event. Publication and grant changes require exclusive resource locks. Account and role checks read current database records. Private storage keys never enter public metadata. A durable deletion ledger coordinates database changes with eventual filesystem cleanup. See [library setup and operations](DIGITAL_LIBRARY.md).
+
 Draft for review · 16 November 2026
 
 The [project requirements](PROJECT_REQUIREMENTS.md) define the business rules. This document proposes the initial technical design. Runtime versions, application structure and workflow design choices below are proposals for review.
@@ -133,6 +185,26 @@ The Placement module follows a teacher and an eligible requester through school 
 
 The source row and placement are locked for changes. The final decision rechecks current teacher verification, including the accepted CV and professional checks, and validates the school or parent and source. Employment also checks vacancy publication and capacity. Home tutoring pins the administrator's checklist to the teacher's current professional verification revision, records an evidence reference and keeps the underlying identity and reference evidence out of participant views. The write updates the companion source status, placement history, audit log and relevant notifications in one transaction. Selection records a separate decision. Final confirmation is made through the managed placement workspace.
 
+## Managed messaging
+
+The Messaging module owns conversation metadata, append-only text messages and per-account read cursors. Each conversation has one teacher, school or parent account holder and a management assignee. All authorised administrators can triage the queue and read the thread. The assigned administrator sends replies and manages status or retention holds. A pending school can contact management before recruitment approval. Server-side checks bind the account holder and sender to the authenticated account and validate linked records at creation.
+
+Creation, append, read acknowledgement and staff decisions use PDO transactions. A locked conversation serialises replies with closure, assignment and retention. Form tokens make creation and message retries idempotent. The shared rate limiter caps each account at ten new conversations per hour and thirty replies per minute. Replies from the account holder set Open, replies from staff set Pending, and Closed threads require staff reopening before a new message. A retry of an existing message preserves its original result.
+
+HTML templates escape subjects and message text. Pages have private no-store headers, and POST actions require CSRF. A vanilla JavaScript enhancement acknowledges only the highest message displayed after the latest displayed item becomes visible. The normal form provides the same acknowledgement. Cursors advance monotonically and belong to the authenticated reader. Inbox and message history use ID-based pagination with 20 conversations and 30 messages per page.
+
+The existing notification service records a generic new-message event for the account holder or assigned administrator. Unassigned conversations notify active administrative staff. The notification text and audit events contain no message content. Inbox unread counts are authoritative and independent of notification history. Message content remains in the authenticated thread.
+
+The initial retention setting is 365 days after closure. Expired content is excluded from application reads even if cleanup has not run. Staff can preserve a thread by applying a retention hold before expiry. Reopening clears its closure timestamp and a later closure starts a new period. Run `php bin/message-retention.php` as a scheduled CLI task to delete up to 100 expired conversations' messages and read cursors, scrub their subjects and linked references, and record purge events. The command keeps lifecycle metadata and audit records for the wider records policy. Backup copies and preservation decisions need the same operational retention review as other private platform data.
+
+## Transactional email
+
+The Email module contains the template catalogue, preferences, outbox writer, delivery worker and SMTP/file transports. PHPMailer creates MIME messages and talks to the configured SMTP relay. The worker claims due rows in short MySQL transactions with `SKIP LOCKED`, commits the lease, and sends outside that transaction and outside the HTTP request. Attempt records and fixed error classifications support operational diagnosis. Abandoned leases and ambiguous SMTP submissions become Uncertain for operator review.
+
+Authentication issuance accepts a queue callback so the token and encrypted outbox secret commit together. Account activation queues a welcome event in the same transaction. VerificationEvents maps supported persisted notifications to safe email templates, while candidate submissions, application submissions and vacancy moderation queue their direct recipients within their existing transactions. Outbox keys identify one event and recipient. The writer rejects reuse with changed content. The worker rechecks recipient address, suspension, token validity and current preferences. Accepted or terminal outcomes clear encrypted token payloads.
+
+The shared email templates contain fixed text, safe status labels, HTML/text alternatives and validated internal links built from APP_URL. The SMTP configuration requires TLS in production, leaves certificate verification enabled, and keeps debug logging off. Message bodies, internal notes and private files do not enter business email. See [email operations](EMAIL.md) for configuration, scheduling, retries, provider status, key handling and sender DNS.
+
 The initial foundation's setup and current capabilities are documented in the [README](../README.md). See [decisions](DECISIONS.md), [implementation progress](IMPLEMENTATION_PROGRESS.md) and the [test plan](TEST_PLAN.md) for this phase.
 
 The [database foundation](DATABASE.md) implements account, role, token, audit and settings storage. The migration ledger and CLI are separate from HTTP bootstrap. PHP sessions use file-backed storage for the initial deployment.
@@ -147,7 +219,7 @@ The teacher document service validates PDF and DOCX for CVs and also accepts JPE
 
 ## Teacher dashboard
 
-An authenticated teacher opens Overview at `/dashboard/teacher`. Dashboard tabs share a module layout with responsive navigation, the account menu, and the site theme. Existing profile-section URLs remain valid. Profile completion, professional verification and document states come from the current account’s profile. The controller derives the account ID from the session and validates all editable fields server-side. The Notifications tab shows verification events. Recruitment, placement, library and messaging show informational states until their backend modules are available.
+An authenticated teacher opens Overview at `/dashboard/teacher`. Dashboard tabs share a module layout with responsive navigation, the account menu, and the site theme. Existing profile-section URLs remain valid. Profile completion, professional verification and document states come from the current account’s profile. The controller derives the account ID from the session and validates all editable fields server-side. The Notifications tab shows verification events. The Digital Library links to the shared catalogue, saved resources and owner-scoped history. Implemented workflow tabs link to their modules; remaining features retain informational states.
 
 Availability saves selected teaching or tutoring options inside the existing profile section. Temporarily unavailable is exclusive. A start date can coexist with active preferences. Existing schedule values are still readable and accepted on the earlier profile form endpoint.
 

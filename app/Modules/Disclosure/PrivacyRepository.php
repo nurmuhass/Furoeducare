@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Furoeducare\Modules\Disclosure;
 
+use Furoeducare\Modules\Admin\StaffAccess;
+
 use Closure;
 use Furoeducare\Core\Database;
 use Furoeducare\Modules\Verification\VerificationEvents;
@@ -127,6 +129,7 @@ final class PrivacyRepository
     public function resolve(int $staff, int $id, string $note): string
     {
         return Database::transaction(($this->database)(), static function (PDO $db) use ($staff, $id, $note): string {
+            StaffAccess::requireIn($db, $staff, 'privacy.manage', true);
             $query = $db->prepare('SELECT account_id, status FROM candidate_privacy_requests WHERE id = ? FOR UPDATE');
             $query->execute([$id]);
             $row = $query->fetch();

@@ -26,7 +26,9 @@ $primaryLinks = [
                 <?php endforeach; ?>
             </ul>
             <div class="nav-actions">
+                <?php require $partials . '/appearance-picker.php'; ?>
                 <?php if ($data['signedIn'] ?? false): ?>
+                    <?php require $partials . '/notification-bell.php'; ?>
                     <a class="nav-login" href="/dashboard">Dashboard</a>
                     <form method="post" action="/logout">
                         <input type="hidden" name="_csrf" value="<?= $escape($data['csrf']) ?>">

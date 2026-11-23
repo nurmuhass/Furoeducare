@@ -23,7 +23,7 @@ $field = static function (
     <div class="form-field">
         <label class="form-label" for="<?= $id ?>"><?= $escape($label) ?></label>
         <?php if ($type === 'textarea'): ?>
-            <textarea class="form-control" <?= $control ?><?= $attributes ?>><?= $escape((string) $value) ?></textarea>
+            <textarea class="form-control" <?= $control ?><?= $attributes ?><?= $required ? ' required' : '' ?>><?= $escape((string) $value) ?></textarea>
         <?php elseif ($type === 'select'): ?>
             <select class="form-select" <?= $control ?> <?= $required ? 'required' : '' ?>>
                 <option value="">Choose an option</option>

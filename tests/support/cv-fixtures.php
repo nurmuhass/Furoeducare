@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 /** Assemble a PDF with actual page content, offsets and a cross-reference table. */
-function sampleCvPdf(array $lines, bool $imageOnly = false): string
+function sampleCvPdf(array $lines, bool $imageOnly = false, string $catalogEntries = ''): string
 {
     $content = $imageOnly ? 'q 100 0 0 100 20 20 cm /Im0 Do Q' : "BT /F1 11 Tf 14 TL 45 760 Td\n";
     foreach ($lines as $line) {
@@ -14,7 +14,7 @@ function sampleCvPdf(array $lines, bool $imageOnly = false): string
     }
     $resource = $imageOnly ? '/XObject << /Im0 6 0 R >>' : '/Font << /F1 4 0 R >>';
     $objects = [
-        '<< /Type /Catalog /Pages 2 0 R >>',
+        '<< /Type /Catalog /Pages 2 0 R ' . $catalogEntries . ' >>',
         '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
         "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << $resource >> /Contents 5 0 R >>",
         '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',

@@ -9,6 +9,12 @@ use LogicException;
 final class Router
 {
     private array $routes = [];
+    private array $guards = [];
+
+    public function before(callable $guard): void
+    {
+        $this->guards[] = $guard;
+    }
 
     public function add(string $method, string $path, callable $handler): void
     {
@@ -31,6 +37,12 @@ final class Router
             $handler = $routes['GET'] ?? null;
         }
         if ($handler !== null) {
+            foreach ($this->guards as $guard) {
+                $response = $guard($request);
+                if ($response instanceof Response) {
+                    return $response;
+                }
+            }
             return $handler($request);
         }
 

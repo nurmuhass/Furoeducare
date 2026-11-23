@@ -31,6 +31,7 @@ $vacancyViews = dirname(__DIR__, 2) . '/Vacancy/Views';
     <a href="<?= $escape($path) ?>">All applications</a>
     <section class="teacher-card my-3">
         <h2 class="text-break"><?= $escape($application['job_title']) ?></h2>
+        <p><a href="/messages?new=1&amp;context_type=vacancy&amp;context_id=<?= (int) $application['vacancy_id'] ?>">Message management about this application</a></p>
         <p class="text-break"><?= $escape($application['job']['school_name']) ?> · Posting at time of application</p>
         <?php require $vacancyViews . '/facts.php'; ?>
     </section>

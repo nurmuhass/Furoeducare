@@ -10,7 +10,9 @@
         "ext-fileinfo": "*",
         "ext-zip": "*",
         "prinsfrank/pdfparser": "^4.3",
-        "ext-xmlreader": "*"
+        "ext-xmlreader": "*",
+        "phpmailer/phpmailer": "^7.2",
+        "ext-sodium": "*"
     },
     "autoload": {
         "psr-4": {

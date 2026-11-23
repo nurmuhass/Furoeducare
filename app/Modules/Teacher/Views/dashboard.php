@@ -45,9 +45,7 @@ require __DIR__ . '/fields.php';
                 <ul><?php foreach ($missing[$section->value] as $item): ?><li><?= $escape($item) ?></li><?php endforeach; ?></ul>
             </div>
         <?php endif; ?>
-        <?php if ($errors !== []): ?>
-            <p class="form-summary" role="alert">Review the highlighted fields and try again.</p>
-        <?php endif; ?>
+        <?= \Furoeducare\UI\Components::error($errors) ?>
         <?php if ($section === Section::Documents): ?>
             <?php require __DIR__ . '/documents.php'; ?>
         <?php else: ?>

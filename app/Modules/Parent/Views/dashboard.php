@@ -9,9 +9,6 @@ $profile = $data['profile'];
 $tab = $data['tab'];
 $values = ($data['values'] ?? []) + $profile + ['email' => $data['email']];
 $errors = $data['errors'] ?? [];
-$pending = [
-    'messages' => 'Conversations with Furoeducare will appear here when messaging is available.',
-];
 ?>
 <section class="page-band parent-dashboard">
     <div class="site-shell">
@@ -21,29 +18,17 @@ $pending = [
         </div>
         <?php if ($data['notice'] !== ''): ?><p class="auth-notice mb-3" role="status"><?= $escape($data['notice']) ?></p><?php endif; ?>
         <div class="row g-4 align-items-start">
-            <aside class="col-lg-3">
-                <div class="form-panel">
-                    <nav aria-label="Parent dashboard navigation">
-                        <ul class="parent-nav">
-                            <?php foreach ($data['tabs'] as $key => $label): ?>
-                                <li><a href="/dashboard/parent<?= $key === 'overview' ? '' : '?tab=' . $key ?>"
-                                    <?= $tab === $key ? 'aria-current="page"' : '' ?>><?= $escape($label) ?></a></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </nav>
-                </div>
-            </aside>
-            <div class="col-lg-9">
+            <div class="col-12">
                 <div class="form-panel parent-panel">
-                    <?php if ($errors !== []): ?><p class="form-summary" role="alert">Review the highlighted fields and try again.</p><?php endif; ?>
+                    <?= \Furoeducare\UI\Components::error($errors) ?>
                     <?php switch ($tab):
                         case 'overview': ?>
                             <h2>Welcome, <?= $escape($profile['first_name']) ?></h2>
                             <p class="mb-3"><?= $escape($profile['city']) ?>, <?= $escape(NigerianStates::NAMES[$profile['state_code']]) ?> · <span class="status-badge">Email verified</span></p>
-                            <dl class="parent-request-counts">
-                                <div><dt>Private drafts</dt><dd><?= (int) $data['counts']['drafts'] ?></dd></div>
-                                <div><dt>Submitted requests</dt><dd><?= (int) $data['counts']['submitted'] ?></dd></div>
-                            </dl>
+                            <div class="dashboard-metrics" aria-label="Tutoring request activity">
+                                <?= \Furoeducare\UI\Components::metric('Private drafts', (int) $data['counts']['drafts'], '/dashboard/parent?tab=requests') ?>
+                                <?= \Furoeducare\UI\Components::metric('Submitted requests', (int) $data['counts']['submitted'], '/dashboard/parent?tab=requests') ?>
+                            </div>
                             <div class="button-row">
                                 <a class="btn button button-primary" href="/dashboard/parent?tab=request-teacher">Request a lesson teacher</a>
                                 <a class="btn button button-outline" href="/dashboard/parent?tab=requests">My requests</a>
@@ -59,9 +44,13 @@ $pending = [
                             <p><a class="btn button button-primary" href="/find-teachers/saved">Open saved teachers</a></p>
                             <?php break;
                         case 'library': ?>
-                            <h2>Public library</h2>
-                            <p>Open the public library to check for published educational resources.</p>
-                            <p class="mt-3"><a class="btn button button-outline" href="/digital-library">Browse the digital library</a></p>
+                            <h2>Digital library</h2>
+                            <p>Browse learning materials, return to saved resources and review your account's downloads.</p>
+                            <div class="button-row mt-3">
+                                <a class="btn button button-primary" href="/digital-library">Browse the digital library</a>
+                                <a class="btn button button-outline" href="/digital-library/saved">Saved resources</a>
+                                <a class="btn button button-outline" href="/digital-library/history">Download history</a>
+                            </div>
                             <?php break;
                         case 'request-teacher':
                         case 'requests':
@@ -102,6 +91,8 @@ $pending = [
                             <p class="mt-3"><a href="/dashboard/parent?tab=requests">Open My Requests</a> · <a href="/placements">View placements</a></p>
                             <?php break;
                         case 'settings': ?>
+                            <p><a href="/settings/account">Account security, phone, appearance and deactivation requests</a></p>
+                            <p><a href="/settings/notifications">Notification settings</a></p>
                             <p><a href="/privacy/controls">Privacy controls and data rights</a></p>
                             <h2>Parent profile</h2>
                             <form class="auth-form" method="post" action="/dashboard/parent/profile">
@@ -113,10 +104,6 @@ $pending = [
                             <?php foreach ($data['roles'] as $role): ?>
                                 <?php if ($role !== Role::Parent): ?><p><a href="<?= $escape($role->dashboard()) ?>"><?= $escape($role->label()) ?> dashboard</a></p><?php endif; ?>
                             <?php endforeach; ?>
-                            <?php break;
-                        default: ?>
-                            <h2>Not available yet</h2>
-                            <p><?= $escape($pending[$tab]) ?></p>
                             <?php break;
                     endswitch; ?>
                 </div>

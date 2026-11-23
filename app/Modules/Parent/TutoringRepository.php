@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Furoeducare\Modules\Parent;
 
+use Furoeducare\Modules\Admin\StaffAccess;
+
 use Closure;
 use DomainException;
 use Furoeducare\Core\Database;
 use Furoeducare\Modules\Disclosure\CandidateRepository;
 use Furoeducare\Modules\Directory\PublicDirectory;
 use Furoeducare\Modules\Placement\PlacementRepository;
+use Furoeducare\Modules\Email\EmailEvents;
 use Furoeducare\Modules\Verification\VerificationEvents;
 use PDO;
 
@@ -95,7 +98,7 @@ final class TutoringRepository
     public function notifications(int $owner): array
     {
         return $this->read("SELECT title, message, created_at FROM verification_notifications
-            WHERE user_id = ? AND (event LIKE 'tutoring.%' OR event LIKE 'disclosure.%' OR event LIKE 'placement.%')
+            WHERE user_id = ? AND in_app_visible = 1 AND (event LIKE 'tutoring.%' OR event LIKE 'disclosure.%' OR event LIKE 'placement.%' OR event LIKE 'messaging.%')
             ORDER BY id DESC LIMIT 30", [$owner]);
     }
 
@@ -169,6 +172,7 @@ final class TutoringRepository
     public function changeCandidate(int $actor, int $id, string $version, string $ref, bool $add): void
     {
         Database::transaction(($this->database)(), function (PDO $db) use ($actor, $id, $version, $ref, $add): void {
+            StaffAccess::requireIn($db, $actor, 'tutoring.manage', true);
             $record = $this->lock($id);
             self::expectVersion($record, $version);
             $stage = TutoringStatus::from($record['status']);
@@ -202,6 +206,7 @@ final class TutoringRepository
     public function transition(int $actor, int $id, string $version, TutoringStatus $to, string $note): void
     {
         Database::transaction(($this->database)(), function (PDO $db) use ($actor, $id, $version, $to, $note): void {
+            StaffAccess::requireIn($db, $actor, 'tutoring.manage', true);
             $record = $this->lock($id);
             $this->requireRole($actor, 'admin');
             self::expectVersion($record, $version);
@@ -302,10 +307,13 @@ final class TutoringRepository
 
     private static function event(PDO $db, array $record, int $actor, TutoringStatus $to, string $note): void
     {
+        if ($to === TutoringStatus::Submitted) {
+            EmailEvents::staff($db, 'tutoring:' . $record['id'], 'new_teacher_request', '/dashboard/admin/tutoring-requests?id=' . (int) $record['id']);
+        }
         $db->prepare('INSERT INTO tutoring_request_history (request_id, actor_user_id, from_status, to_status, note) VALUES (?, ?, ?, ?, ?)')
             ->execute([$record['id'], $actor, $record['status'], $to->value, $note]);
         VerificationEvents::record($db, $actor, (int) $record['parent_id'], 'tutoring.' . $to->value,
-            ['request_id' => (int) $record['id'], 'from' => $record['status'], 'to' => $to->value],
+            ['history_id' => (int) $db->lastInsertId(), 'request_id' => (int) $record['id'], 'from' => $record['status'], 'to' => $to->value],
             'Tutoring request #' . $record['id'] . ' · ' . $to->label(),
             'Open My Requests to view this update and any notes from Furoeducare.');
     }
